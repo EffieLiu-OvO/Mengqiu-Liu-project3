@@ -1,0 +1,193 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  margin-left: 200px;
+  transition: margin-left 0.3s ease;
+  font-family: Arial, sans-serif;
+  line-height: 1.6;
+  color: #333;
+  background-color: #f5f5f5;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.navbar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: 200px;
+  background: linear-gradient(180deg, #2c3e50, #34495e);
+  color: white;
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.navbar-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  padding: 20px;
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 30px;
+}
+
+.navbar-links {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 0 15px;
+}
+
+.navbar-links a {
+  color: #ecf0f1;
+  text-decoration: none;
+  padding: 12px 15px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  display: block;
+  font-size: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.navbar-links a:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  transform: translateX(5px);
+}
+
+.navbar-links a.active {
+  background-color: #3498db;
+  color: white;
+}
+
+.navbar-links a.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 4px;
+  background-color: #e74c3c;
+}
+
+footer {
+  text-align: center;
+  margin-top: 50px;
+  font-size: 0.9rem;
+  color: #777;
+}
+
+@media (max-width: 768px) {
+  body {
+    margin-left: 0;
+    margin-bottom: 60px;
+  }
+
+  .navbar {
+    height: 60px;
+    width: 100%;
+    top: auto;
+    bottom: 0;
+    flex-direction: row;
+    align-items: center;
+    padding: 0;
+  }
+
+  .navbar-title {
+    padding: 10px;
+    margin: 0;
+    border: none;
+    font-size: 1rem;
+    max-width: 100px;
+  }
+
+  .navbar-links {
+    flex-direction: row;
+    flex-grow: 1;
+    justify-content: space-around;
+    padding: 0 10px;
+    margin: 0;
+  }
+
+  .navbar-links a {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
+  .navbar-links a:hover {
+    transform: translateY(-2px);
+  }
+
+  .navbar-links a.active::before {
+    width: 100%;
+    height: 3px;
+    top: auto;
+    bottom: 0;
+  }
+}
+
+@media (min-width: 769px) {
+  .navbar:hover {
+    width: 220px;
+  }
+
+  .navbar-links a:hover {
+    padding-left: 20px;
+  }
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main {
+  margin: 20px auto;
+  max-width: 1000px;
+  padding: 20px 15px;
+}
+/* 添加到现有的App.css */
+.user-info {
+  margin-left: auto;
+}
+
+.username {
+  color: #fff;
+  font-weight: bold;
+}
+
+.logout-button {
+  background: none;
+  border: 1px solid #fff;
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.logout-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 768px) {
+  .user-info,
+  .logout-button {
+    margin: 0;
+    padding: 8px 12px;
+  }
+}

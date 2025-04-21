@@ -1,0 +1,93 @@
+main {
+  margin: 50px auto;
+  max-width: 800px;
+  padding: 0 20px;
+}
+
+.rules-section,
+.game-modes-section,
+.ship-types-section,
+.credits-section {
+  background-color: #f8f9fa;
+  border-radius: 10px;
+  padding: 25px 35px;
+  margin: 20px 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+  color: #333;
+  margin-bottom: 30px;
+  font-size: 2.2rem;
+  text-align: center;
+}
+
+h2 {
+  color: #444;
+  margin-bottom: 20px;
+  font-size: 1.6rem;
+  border-bottom: 2px solid #0074d9;
+  padding-bottom: 10px;
+}
+
+.rules-list,
+.game-modes-list,
+.ship-types-list {
+  list-style-position: inside;
+  padding-left: 0;
+}
+
+.rules-list li,
+.game-modes-list li,
+.ship-types-list li {
+  margin-bottom: 15px;
+  color: #555;
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+
+.credits {
+  margin-top: 40px;
+  font-size: 1rem;
+  color: #666;
+}
+
+.credits p {
+  margin: 10px 0;
+  line-height: 1.4;
+}
+
+.credits a {
+  color: #0074d9;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.credits a:hover {
+  color: #0056b3;
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  main {
+    margin: 30px auto;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+  }
+
+  h2 {
+    font-size: 1.4rem;
+  }
+
+  .rules-list li,
+  .game-modes-list li,
+  .ship-types-list li {
+    font-size: 1rem;
+  }
+
+  .credits {
+    font-size: 0.9rem;
+  }
+}
