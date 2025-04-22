@@ -16,132 +16,377 @@ const MultiplayerGamePage = () => {
   const [pollInterval, setPollInterval] = useState(null);
   const dataFetchedRef = useRef(false);
   const clickDisabledRef = useRef(false);
+  const lastGameStateRef = useRef(null);
+  const initBoardAndShipsRef = useRef(false);
+  const movesHistoryRef = useRef([]);
+  const gameStartForcedRef = useRef(false);
+  const readyStatusRef = useRef(false);
 
   const userString = localStorage.getItem("user");
   const user = userString ? JSON.parse(userString) : null;
   const token = localStorage.getItem("token");
 
-  const checkGameStatus = useCallback(async () => {
-    if (!gameId || !token || !user) return false;
+  const forceStartGame = useCallback(
+    (gameData) => {
+      console.log("FORCE STARTING GAME!");
 
-    try {
-      console.log("Checking game status...");
-      const response = await fetch(
-        `http://localhost:8000/api/games/${gameId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const gameDataShips = gameData.gameData.ships || {};
+      const gameDataBoards = gameData.gameData.boards || {};
 
-      if (!response.ok) {
-        throw new Error("Failed to get game status");
+      const isPlayerTurn = gameData.gameData.currentTurn === user._id;
+      const playerShips = gameDataShips[user._id] || state.playerShips;
+
+      let opponentBoard = Array(10)
+        .fill()
+        .map(() => Array(10).fill(null));
+
+      if (gameData.gameData.moves) {
+        gameData.gameData.moves.forEach((move) => {
+          if (move.player === user._id) {
+            if (!opponentBoard[move.row]) {
+              opponentBoard[move.row] = Array(10).fill(null);
+            }
+
+            if (!opponentBoard[move.row][move.col]) {
+              opponentBoard[move.row][move.col] = {};
+            }
+
+            opponentBoard[move.row][move.col].isHit = true;
+            opponentBoard[move.row][move.col].hasShip = move.isHit;
+          }
+        });
       }
 
-      const gameData = await response.json();
-      console.log("Game status check:", gameData);
+      dispatch({
+        type: "INIT_GAME_BOARDS",
+        payload: {
+          playerBoard: gameDataBoards[user._id] || state.playerBoard,
+          playerShips: playerShips,
+          opponentBoard: opponentBoard,
+        },
+      });
 
-      if (gameData.status === "in_progress") {
-        console.log("Game in progress");
-        console.log(
-          "Backend current turn player ID:",
-          gameData.gameData.currentTurn
+      dispatch({
+        type: "GAME_STARTED",
+        payload: {
+          firstTurn: isPlayerTurn ? "player" : "opponent",
+          playerShips: playerShips,
+        },
+      });
+
+      dispatch({
+        type: "SET_TURN",
+        payload: {
+          currentTurn: isPlayerTurn ? "player" : "opponent",
+        },
+      });
+
+      dispatch({
+        type: "SET_GAME_MESSAGE",
+        payload: {
+          message: isPlayerTurn ? "Your turn" : "Opponent's turn",
+        },
+      });
+
+      setIsMyTurn(isPlayerTurn);
+      gameStartForcedRef.current = true;
+    },
+    [user, state.playerBoard, state.playerShips, dispatch]
+  );
+
+  const handleAutoReady = async (board, ships) => {
+    const maxRetries = 3;
+    let retryCount = 0;
+
+    const attemptReady = async () => {
+      try {
+        console.log("Auto-sending ready state with ships:", ships);
+
+        const response = await fetch(
+          `http://localhost:8000/api/games/${gameId}/ready`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              ships: ships,
+              board: board,
+            }),
+          }
         );
-        console.log("Current user ID:", user._id);
 
-        const isPlayerTurn = gameData.gameData.currentTurn === user._id;
-        console.log("Is it current user's turn:", isPlayerTurn);
+        const responseData = await response.json();
+        console.log("Ready response:", responseData);
 
-        setIsMyTurn(isPlayerTurn);
-        clickDisabledRef.current = false;
+        if (!response.ok) {
+          throw new Error(responseData.message || "Auto-ready failed");
+        }
 
-        if (gameData.players && gameData.players.length > 1) {
-          const opponent = gameData.players.find(
-            (player) => player.user && player.user._id !== user._id
+        dispatch({
+          type: "PLAYER_READY",
+        });
+
+        readyStatusRef.current = true;
+        console.log("Player successfully ready");
+
+        setTimeout(() => {
+          checkGameStatus(true);
+          setTimeout(() => checkGameStatus(true), 1000);
+          setTimeout(() => checkGameStatus(true), 2000);
+        }, 500);
+      } catch (error) {
+        console.error("Auto-ready error:", error);
+
+        if (retryCount < maxRetries) {
+          retryCount++;
+          console.log(`Retrying auto-ready (${retryCount}/${maxRetries})...`);
+          setTimeout(attemptReady, 1000);
+        } else {
+          setError(
+            `Failed to send ship positions after ${maxRetries} attempts`
           );
+        }
+      }
+    };
 
-          if (opponent && opponent.user) {
-            setOpponentUser(opponent.user);
+    attemptReady();
+  };
 
-            dispatch({
-              type: "SET_OPPONENT",
-              payload: { opponent: opponent.user },
-            });
+  const checkGameStatus = useCallback(
+    async (forceCheck = false) => {
+      if (!gameId || !token || !user) return false;
+
+      try {
+        console.log("Checking game status...");
+        const response = await fetch(
+          `http://localhost:8000/api/games/${gameId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to get game status");
+        }
+
+        const gameData = await response.json();
+
+        console.log("Game status:", gameData.status);
+        console.log("Current turn:", gameData.gameData?.currentTurn);
+        console.log("Player ready status:", readyStatusRef.current);
+        console.log(
+          "Opponent ready?",
+          gameData.players && gameData.players.every((p) => p.ready)
+        );
+
+        if (
+          !forceCheck &&
+          lastGameStateRef.current &&
+          JSON.stringify(lastGameStateRef.current) === JSON.stringify(gameData)
+        ) {
+          return false;
+        }
+
+        lastGameStateRef.current = gameData;
+
+        // 检查所有玩家是否都已准备好，即使游戏状态还不是in_progress
+        if (
+          gameData.players &&
+          gameData.players.length >= 2 &&
+          gameData.players.every((p) => p.ready) &&
+          !gameStartForcedRef.current
+        ) {
+          console.log("All players are ready! Attempting to force start game");
+
+          if (gameData.status === "waiting") {
+            setTimeout(() => checkGameStatus(true), 1000);
+          } else if (gameData.status === "in_progress") {
+            forceStartGame(gameData);
+            return true;
           }
         }
 
-        dispatch({
-          type: "SET_TURN",
-          payload: {
-            currentTurn: isPlayerTurn ? "player" : "opponent",
-          },
-        });
+        if (gameData.status === "in_progress") {
+          if (!gameData.gameData || !gameData.gameData.currentTurn) {
+            return false;
+          }
 
-        if (state.gameStatus !== "playing") {
-          console.log("Game is now in progress!");
+          // 如果游戏已经开始但前端状态仍然在等待中，强制更新状态
+          if (
+            state.gameStatus === "waiting" ||
+            state.gameStatus === "waiting_opponent" ||
+            state.gameStatus === "ready" ||
+            !gameStartForcedRef.current
+          ) {
+            console.log(
+              "Game is in progress but frontend is still waiting, forcing start"
+            );
+            forceStartGame(gameData);
+            return true;
+          }
 
-          const playerShips =
-            gameData.gameData.ships[user._id] || state.playerShips;
+          const gameDataShips = gameData.gameData.ships || {};
+          const gameDataBoards = gameData.gameData.boards || {};
+          const gameDataMoves = gameData.gameData.moves || [];
 
+          if (gameDataMoves.length > 0) {
+            movesHistoryRef.current = gameDataMoves;
+          }
+
+          if (!gameDataShips[user._id] || !gameDataBoards[user._id]) {
+            console.log(
+              "Ship data missing for current user, sending auto-ready"
+            );
+
+            if (!initBoardAndShipsRef.current) {
+              const { board, ships } = placeShipsRandomly();
+              initBoardAndShipsRef.current = true;
+
+              dispatch({
+                type: "INIT_PLAYER_BOARD",
+                payload: { board, ships },
+              });
+
+              handleAutoReady(board, ships);
+            }
+          }
+
+          const isPlayerTurn = gameData.gameData.currentTurn === user._id;
+          setIsMyTurn(isPlayerTurn);
+          clickDisabledRef.current = false;
+
+          if (gameData.players && gameData.players.length > 1) {
+            const opponent = gameData.players.find(
+              (player) => player.user && player.user._id !== user._id
+            );
+
+            if (opponent && opponent.user) {
+              setOpponentUser(opponent.user);
+
+              if (!state.opponent || state.opponent._id !== opponent.user._id) {
+                dispatch({
+                  type: "SET_OPPONENT",
+                  payload: { opponent: opponent.user },
+                });
+              }
+            }
+          }
+
+          const newTurn = isPlayerTurn ? "player" : "opponent";
+          if (state.currentTurn !== newTurn) {
+            dispatch({
+              type: "SET_TURN",
+              payload: {
+                currentTurn: newTurn,
+              },
+            });
+          }
+
+          if (state.gameStatus !== "playing") {
+            const playerShips = gameDataShips[user._id] || state.playerShips;
+
+            let opponentBoard = Array(10)
+              .fill()
+              .map(() => Array(10).fill(null));
+
+            gameDataMoves.forEach((move) => {
+              if (move.player === user._id) {
+                if (!opponentBoard[move.row]) {
+                  opponentBoard[move.row] = Array(10).fill(null);
+                }
+
+                if (!opponentBoard[move.row][move.col]) {
+                  opponentBoard[move.row][move.col] = {};
+                }
+
+                opponentBoard[move.row][move.col].isHit = true;
+                opponentBoard[move.row][move.col].hasShip = move.isHit;
+              }
+            });
+
+            dispatch({
+              type: "INIT_GAME_BOARDS",
+              payload: {
+                playerBoard: gameDataBoards[user._id] || state.playerBoard,
+                playerShips: playerShips,
+                opponentBoard: opponentBoard,
+              },
+            });
+
+            dispatch({
+              type: "GAME_STARTED",
+              payload: {
+                firstTurn: isPlayerTurn ? "player" : "opponent",
+                playerShips: playerShips,
+              },
+            });
+
+            return true;
+          }
+        } else if (gameData.status === "completed") {
+          const isWinner = gameData.winner === user._id;
           dispatch({
-            type: "GAME_STARTED",
-            payload: {
-              firstTurn: isPlayerTurn ? "player" : "opponent",
-              playerShips: playerShips,
-            },
+            type: "SET_GAME_MESSAGE",
+            payload: { message: isWinner ? "You won!" : "You lost!" },
           });
+
+          if (pollInterval) {
+            clearInterval(pollInterval);
+            setPollInterval(null);
+          }
 
           return true;
         }
-      } else if (gameData.status === "completed") {
-        const isWinner = gameData.winner === user._id;
-        setGameMessage(isWinner ? "You won!" : "You lost!");
-        dispatch({
-          type: "SET_GAME_MESSAGE",
-          payload: { message: isWinner ? "You won!" : "You lost!" },
-        });
-        return true;
-      }
 
-      return false;
-    } catch (error) {
-      console.error("Error checking game status:", error);
-      setError("Unable to get game status");
-      return false;
-    }
-  }, [gameId, token, user, dispatch, state.gameStatus, state.playerShips]);
+        return false;
+      } catch (error) {
+        console.error("Error checking game status:", error);
+
+        if (error.message !== "Failed to fetch") {
+          setError("Unable to get game status");
+        }
+        return false;
+      }
+    },
+    [
+      gameId,
+      token,
+      user,
+      dispatch,
+      state.gameStatus,
+      state.currentTurn,
+      state.opponent,
+      state.playerShips,
+      state.playerBoard,
+      pollInterval,
+      forceStartGame,
+    ]
+  );
 
   useEffect(() => {
     if (!gameId || !token || !user) return;
 
-    console.log(
-      "Setting polling interval, current game status:",
-      state.gameStatus
-    );
-
     if (pollInterval) {
-      console.log("Clearing previous polling");
       clearInterval(pollInterval);
     }
 
-    let interval;
+    let intervalTime = 800;
     if (
       state.gameStatus === "waiting_opponent" ||
       state.gameStatus === "ready"
     ) {
-      interval = setInterval(() => {
-        checkGameStatus();
-      }, 2000);
+      intervalTime = 600;
     } else if (state.gameStatus === "playing") {
-      interval = setInterval(() => {
-        checkGameStatus();
-      }, 3000);
-    } else {
-      interval = setInterval(() => {
-        checkGameStatus();
-      }, 2500);
+      intervalTime = 1000;
     }
+
+    const interval = setInterval(() => {
+      checkGameStatus();
+    }, intervalTime);
 
     setPollInterval(interval);
 
@@ -151,16 +396,6 @@ const MultiplayerGamePage = () => {
       }
     };
   }, [gameId, token, user, state.gameStatus, checkGameStatus]);
-
-  useEffect(() => {
-    return () => {
-      console.log("Component unmounting, cleaning up resources");
-      if (pollInterval) {
-        clearInterval(pollInterval);
-      }
-      document.body.style.overflow = "auto";
-    };
-  }, [pollInterval]);
 
   useEffect(() => {
     if (!gameId || !token || dataFetchedRef.current) return;
@@ -184,6 +419,8 @@ const MultiplayerGamePage = () => {
         const gameData = await response.json();
         console.log("Initial game data:", gameData);
 
+        lastGameStateRef.current = gameData;
+
         if (gameData.players && gameData.players.length > 0) {
           const opponent = gameData.players.find(
             (player) => player.user && player.user._id !== user._id
@@ -203,84 +440,44 @@ const MultiplayerGamePage = () => {
           payload: { gameId },
         });
 
-        if (gameData.status === "waiting") {
-          const { board, ships } = placeShipsRandomly();
+        // 检查是否所有玩家都已准备就绪，但游戏尚未开始
+        if (
+          gameData.players &&
+          gameData.players.length >= 2 &&
+          gameData.players.every((p) => p.ready) &&
+          gameData.status !== "in_progress"
+        ) {
+          console.log("All players ready but game not started yet");
+          setTimeout(() => checkGameStatus(true), 1000);
+        }
 
-          dispatch({
-            type: "START_PLACEMENT_PHASE",
-          });
+        if (gameData.status === "in_progress") {
+          console.log("Game already in progress, starting immediately");
+          forceStartGame(gameData);
+        } else if (gameData.status === "waiting") {
+          if (!initBoardAndShipsRef.current) {
+            const { board, ships } = placeShipsRandomly();
 
-          dispatch({
-            type: "INIT_PLAYER_BOARD",
-            payload: { board, ships },
-          });
+            initBoardAndShipsRef.current = true;
 
-          dispatch({
-            type: "SET_GAME_MESSAGE",
-            payload: { message: "Game ready, waiting for opponent to join" },
-          });
-        } else if (gameData.status === "in_progress") {
-          const isPlayerTurn = gameData.gameData?.currentTurn === user._id;
-          setIsMyTurn(isPlayerTurn);
+            dispatch({
+              type: "START_PLACEMENT_PHASE",
+            });
 
-          const playerShips = gameData.gameData.ships[user._id] || [];
+            dispatch({
+              type: "INIT_PLAYER_BOARD",
+              payload: { board, ships },
+            });
 
-          const opponentBoard = Array(10)
-            .fill()
-            .map(() => Array(10).fill(null));
+            handleAutoReady(board, ships);
 
-          let playerBoard =
-            gameData.gameData.boards[user._id] ||
-            Array(10)
-              .fill()
-              .map(() => Array(10).fill(null));
-
-          if (Array.isArray(playerShips) && playerShips.length > 0) {
-            playerShips.forEach((ship) => {
-              if (ship.positions) {
-                ship.positions.forEach((pos) => {
-                  if (playerBoard[pos.row] && playerBoard[pos.row][pos.col]) {
-                    playerBoard[pos.row][pos.col].hasShip = true;
-                  } else if (playerBoard[pos.row]) {
-                    playerBoard[pos.row][pos.col] = { hasShip: true };
-                  }
-                });
-              }
+            dispatch({
+              type: "SET_GAME_MESSAGE",
+              payload: { message: "Game ready, waiting for opponent to join" },
             });
           }
-
-          dispatch({
-            type: "INIT_GAME_BOARDS",
-            payload: {
-              playerBoard,
-              playerShips,
-              opponentBoard,
-            },
-          });
-
-          dispatch({
-            type: "GAME_STARTED",
-            payload: {
-              firstTurn: isPlayerTurn ? "player" : "opponent",
-            },
-          });
-
-          dispatch({
-            type: "SET_TURN",
-            payload: {
-              currentTurn: isPlayerTurn ? "player" : "opponent",
-            },
-          });
-
-          dispatch({
-            type: "SET_GAME_MESSAGE",
-            payload: {
-              message: isPlayerTurn ? "Your turn" : "Opponent's turn",
-            },
-          });
         } else if (gameData.status === "completed") {
           const isWinner = gameData.winner && gameData.winner._id === user._id;
-          setGameMessage(isWinner ? "You won!" : "You lost!");
 
           dispatch({
             type: "SET_GAME_MESSAGE",
@@ -298,7 +495,7 @@ const MultiplayerGamePage = () => {
     };
 
     fetchGameData();
-  }, [gameId, token, user, dispatch]);
+  }, [gameId, token, user, dispatch, checkGameStatus, forceStartGame]);
 
   const setGameMessage = (message) => {
     dispatch({
@@ -308,37 +505,24 @@ const MultiplayerGamePage = () => {
   };
 
   const handleCellClick = async (row, col) => {
-    console.log("Board clicked:", row, col);
-    console.log("Current game state:", {
-      gameStatus: state.gameStatus,
-      currentTurn: state.currentTurn,
-      isMyTurn: isMyTurn,
-      userId: user?._id,
-    });
-
     if (clickDisabledRef.current) {
-      console.log("Click temporarily disabled to prevent double clicks");
       return;
     }
 
-    if (state.gameStatus !== "playing") {
-      console.log("Game not in progress");
+    if (state.gameStatus !== "playing" || !isMyTurn) {
       return;
     }
 
-    if (!isMyTurn) {
-      console.log("Not your turn");
-      return;
-    }
-
-    if (state.opponentBoard[row][col]?.isHit) {
-      console.log("This position has already been attacked");
+    if (
+      state.opponentBoard &&
+      state.opponentBoard[row] &&
+      state.opponentBoard[row][col] &&
+      state.opponentBoard[row][col].isHit
+    ) {
       return;
     }
 
     try {
-      console.log("Attempting move:", row, col);
-
       clickDisabledRef.current = true;
 
       dispatch({
@@ -366,7 +550,14 @@ const MultiplayerGamePage = () => {
       }
 
       const moveResult = await response.json();
-      console.log("Move result:", moveResult);
+
+      movesHistoryRef.current.push({
+        player: user._id,
+        row,
+        col,
+        isHit: moveResult.isHit,
+        timestamp: Date.now(),
+      });
 
       dispatch({
         type: "MOVE_RESULT",
@@ -385,6 +576,11 @@ const MultiplayerGamePage = () => {
       setError("");
 
       if (moveResult.isGameOver) {
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          setPollInterval(null);
+        }
+
         dispatch({
           type: "SET_GAME_MESSAGE",
           payload: { message: "You won!" },
@@ -398,24 +594,25 @@ const MultiplayerGamePage = () => {
           },
           body: JSON.stringify({ winnerId: user._id }),
         });
-
-        if (pollInterval) {
-          clearInterval(pollInterval);
-          setPollInterval(null);
-        }
       }
+
+      setTimeout(() => checkGameStatus(true), 500);
     } catch (error) {
       console.error("Move error:", error);
       setError(error.message);
-      clickDisabledRef.current = false;
-      await checkGameStatus();
+    } finally {
+      setTimeout(() => {
+        clickDisabledRef.current = false;
+      }, 1000);
     }
   };
 
   const handleLeaveGame = useCallback(() => {
-    console.log("Attempting to leave game");
-
     if (gameId && token) {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+
       try {
         fetch(`http://localhost:8000/api/games/${gameId}/leave`, {
           method: "POST",
@@ -424,18 +621,12 @@ const MultiplayerGamePage = () => {
           },
         })
           .then(() => {
-            console.log("Successfully left game");
-            if (pollInterval) {
-              clearInterval(pollInterval);
-            }
             navigate("/games");
           })
-          .catch((error) => {
-            console.error("Error leaving game:", error);
+          .catch(() => {
             navigate("/games");
           });
       } catch (error) {
-        console.error("Error in leave game function:", error);
         navigate("/games");
       }
     } else {
@@ -444,10 +635,10 @@ const MultiplayerGamePage = () => {
   }, [gameId, token, navigate, pollInterval]);
 
   const handleReady = async () => {
-    console.log("Start game button clicked");
-    console.log("Game state:", state);
-
     try {
+      console.log("Sending ready with ships:", state.playerShips);
+      console.log("Board data:", state.playerBoard ? "YES" : "NO");
+
       const response = await fetch(
         `http://localhost:8000/api/games/${gameId}/ready`,
         {
@@ -464,37 +655,58 @@ const MultiplayerGamePage = () => {
       );
 
       const responseData = await response.json();
-      console.log("Ready response:", responseData);
 
       if (!response.ok) {
         throw new Error(responseData.message || "Preparation failed");
       }
 
+      readyStatusRef.current = true;
       dispatch({
         type: "PLAYER_READY",
       });
 
-      if (pollInterval) {
-        clearInterval(pollInterval);
-      }
-
-      const newInterval = setInterval(() => {
-        checkGameStatus();
-      }, 1000);
-
-      setPollInterval(newInterval);
+      setTimeout(() => {
+        checkGameStatus(true);
+        setTimeout(() => checkGameStatus(true), 1000);
+      }, 500);
     } catch (error) {
       console.error("Ready error:", error);
       setError(error.message);
     }
   };
 
-  console.log("Rendering MultiplayerGamePage, state:", {
-    gameStatus: state.gameStatus,
-    currentTurn: state.currentTurn,
-    isMyTurn,
-    opponentUser,
-  });
+  useEffect(() => {
+    if (readyStatusRef.current && state.gameStatus === "waiting_opponent") {
+      console.log("Checking if game has started...");
+      const checkIfGameStarted = async () => {
+        try {
+          const response = await fetch(
+            `http://localhost:8000/api/games/${gameId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.status === "in_progress") {
+              console.log("GAME HAS STARTED! FORCING UPDATE!");
+              forceStartGame(data);
+            }
+          }
+        } catch (error) {
+          console.error("Error checking game status:", error);
+        }
+      };
+
+      checkIfGameStarted();
+      const interval = setInterval(checkIfGameStarted, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [state.gameStatus, readyStatusRef.current, gameId, token, forceStartGame]);
 
   if (loading) {
     return (
@@ -555,6 +767,13 @@ const MultiplayerGamePage = () => {
         <h1>Multiplayer - Waiting for opponent to get ready</h1>
         <div className="game-message">
           <h2>{state.gameMessage || "Waiting for opponent..."}</h2>
+          <button
+            className="retry-btn"
+            onClick={() => checkGameStatus(true)}
+            style={{ marginTop: "20px", padding: "10px 20px" }}
+          >
+            Check Status
+          </button>
         </div>
         <button className="cancel-btn" onClick={handleLeaveGame}>
           Leave Game

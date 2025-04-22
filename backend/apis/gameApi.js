@@ -133,6 +133,8 @@ router.post("/:id/ready", auth, async (req, res) => {
     console.log("Received ready request");
     console.log("User ID:", req.userId);
     console.log("Game ID:", gameId);
+    console.log("Ships data:", JSON.stringify(ships).substring(0, 100) + "...");
+    console.log("Board data received:", board ? "Yes" : "No");
 
     const game = await Game.findById(gameId);
     if (!game) {
@@ -140,41 +142,37 @@ router.post("/:id/ready", auth, async (req, res) => {
       return res.status(404).json({ message: "Game not found" });
     }
 
-    // Initialize gameData structure if not present
-    if (!game.gameData) {
-      game.gameData = {
-        boards: {},
-        ships: {},
-        moves: [],
-        currentTurn: null,
-      };
-    }
+    // 创建对游戏数据的深拷贝，以防止引用问题
+    let gameData = JSON.parse(JSON.stringify(game.gameData || {}));
 
-    // Ensure all players have board and ship entries
-    game.players.forEach((player) => {
-      const playerId = String(player.user);
-      // Initialize board if not present
-      if (!game.gameData.boards[playerId]) {
-        game.gameData.boards[playerId] = Array(10)
-          .fill()
-          .map(() => Array(10).fill(null));
-      }
+    // 确保gameData的结构完整
+    if (!gameData.boards) gameData.boards = {};
+    if (!gameData.ships) gameData.ships = {};
+    if (!gameData.moves) gameData.moves = [];
 
-      // Initialize ships if not present
-      if (!game.gameData.ships[playerId]) {
-        game.gameData.ships[playerId] = [];
-      }
+    // 保存当前玩家的数据
+    const userId = String(req.userId);
+    gameData.boards[userId] = board;
+    gameData.ships[userId] = ships;
+
+    console.log("Current gameData structure:", {
+      boardKeys: Object.keys(gameData.boards),
+      shipKeys: Object.keys(gameData.ships),
     });
 
-    // Set current player's data
-    const userId = String(req.userId);
-    game.gameData.boards[userId] = board;
-    game.gameData.ships[userId] = ships;
+    // 更新游戏对象的gameData字段
+    game.gameData = gameData;
 
-    console.log("Saved player data with key:", userId);
-    console.log("Board keys after save:", Object.keys(game.gameData.boards));
+    console.log(
+      "Updated game data, board keys:",
+      Object.keys(game.gameData.boards)
+    );
+    console.log(
+      "Updated game data, ship keys:",
+      Object.keys(game.gameData.ships)
+    );
 
-    // Update player ready status
+    // 更新玩家准备状态
     const playerIndex = game.players.findIndex(
       (player) => String(player.user) === userId
     );
@@ -187,18 +185,31 @@ router.post("/:id/ready", auth, async (req, res) => {
 
     game.players[playerIndex].ready = true;
 
-    // Check if all players are ready
+    // 检查所有玩家是否准备好
     const allReady = game.players.every((player) => player.ready);
 
-    if (allReady && game.players.length >= 2) {
+    // 如果所有玩家都准备好并且游戏还未开始，则启动游戏
+    if (allReady && game.players.length >= 2 && game.status !== "in_progress") {
       game.status = "in_progress";
-      // Select a random player to go first
       const firstPlayerIndex = Math.floor(Math.random() * game.players.length);
       game.gameData.currentTurn = String(game.players[firstPlayerIndex].user);
       console.log("Game starting! First turn:", game.gameData.currentTurn);
     }
 
+    // 保存游戏对象
     await game.save();
+
+    // 验证保存是否成功
+    const savedGame = await Game.findById(gameId);
+    console.log(
+      "Verification after save - board keys:",
+      Object.keys(savedGame.gameData.boards)
+    );
+    console.log(
+      "Verification after save - ship keys:",
+      Object.keys(savedGame.gameData.ships)
+    );
+
     console.log("Game saved successfully");
     res.json(game);
   } catch (error) {
@@ -229,7 +240,6 @@ router.post("/:id/move", auth, async (req, res) => {
         .json({ message: "Game has not started or has ended" });
     }
 
-    // Convert IDs to strings for consistent comparison
     const currentTurnId = String(game.gameData.currentTurn);
     const requestUserId = String(req.userId);
 
@@ -237,7 +247,6 @@ router.post("/:id/move", auth, async (req, res) => {
       `Turn check - Current turn: ${currentTurnId}, User: ${requestUserId}`
     );
 
-    // Check if it's the player's turn
     if (currentTurnId !== requestUserId) {
       console.log(
         `Turn mismatch - Expected: ${currentTurnId}, Received: ${requestUserId}`
@@ -245,7 +254,6 @@ router.post("/:id/move", auth, async (req, res) => {
       return res.status(403).json({ message: "Not your turn" });
     }
 
-    // Find opponent
     const opponent = game.players.find(
       (player) => String(player.user) !== requestUserId
     );
@@ -258,14 +266,12 @@ router.post("/:id/move", auth, async (req, res) => {
     const opponentId = String(opponent.user);
     console.log(`Opponent ID: ${opponentId}`);
 
-    // Debug the available data
     console.log(
       "Available board keys:",
       Object.keys(game.gameData.boards || {})
     );
     console.log("Available ship keys:", Object.keys(game.gameData.ships || {}));
 
-    // Check if opponent data exists
     if (!game.gameData.boards[opponentId]) {
       console.log(`Initializing missing opponent board for: ${opponentId}`);
       game.gameData.boards[opponentId] = Array(10)
@@ -281,13 +287,11 @@ router.post("/:id/move", auth, async (req, res) => {
     const opponentBoard = game.gameData.boards[opponentId];
     const opponentShips = game.gameData.ships[opponentId];
 
-    // If opponent hasn't placed ships yet, we can't proceed
     if (opponentShips.length === 0) {
       console.log("Opponent hasn't placed ships yet");
       return res.status(400).json({ message: "Opponent not ready" });
     }
 
-    // Process the move
     const cellState = opponentBoard[row][col];
     if (cellState && cellState.isHit) {
       console.log("Cell already hit");
@@ -304,7 +308,6 @@ router.post("/:id/move", auth, async (req, res) => {
     }
     opponentBoard[row][col].isHit = true;
 
-    // Record the move
     game.gameData.moves.push({
       player: req.userId,
       row,
@@ -365,7 +368,6 @@ router.post("/:id/move", auth, async (req, res) => {
         await loser.save();
       }
     } else {
-      // Change turns
       game.gameData.currentTurn = opponentId;
       console.log(`Turn changed to: ${opponentId}`);
     }

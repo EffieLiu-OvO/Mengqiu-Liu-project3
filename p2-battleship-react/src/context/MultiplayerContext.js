@@ -241,6 +241,9 @@ const multiplayerReducer = (state, action) => {
 
       if (isPlayerMove) {
         newBoard = JSON.parse(JSON.stringify(state.opponentBoard));
+        if (!newBoard[moveRow]) {
+          newBoard[moveRow] = Array(10).fill(null);
+        }
         if (!newBoard[moveRow][moveCol]) {
           newBoard[moveRow][moveCol] = { isHit: true, hasShip: isHit };
         } else {
@@ -253,6 +256,9 @@ const multiplayerReducer = (state, action) => {
         if (isGameOver) message = "Congratulations, you won!";
       } else {
         newBoard = JSON.parse(JSON.stringify(state.playerBoard));
+        if (!newBoard[moveRow]) {
+          newBoard[moveRow] = Array(10).fill(null);
+        }
         if (!newBoard[moveRow][moveCol]) {
           newBoard[moveRow][moveCol] = { isHit: true, hasShip: isHit };
         } else {
