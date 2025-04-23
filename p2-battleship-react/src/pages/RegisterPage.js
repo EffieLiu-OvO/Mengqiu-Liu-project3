@@ -20,7 +20,7 @@ const RegisterPage = () => {
 
     try {
       const response = await fetch(
-        "await fetch(`${process.env.REACT_APP_API_BASE_URL}/api/auth/login`",
+        `${process.env.REACT_APP_API_BASE_URL}/api/auth/register`,
         {
           method: "POST",
           headers: {

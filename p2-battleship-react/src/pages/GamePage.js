@@ -13,21 +13,18 @@ const GamePage = () => {
   const gameContainerRef = useRef(null);
   const [gameMessage, setGameMessage] = useState("");
 
-  // 获取当前用户信息和令牌
   const userString = localStorage.getItem("user");
   const user = userString ? JSON.parse(userString) : null;
   const token = localStorage.getItem("token");
 
-  // 获取对手ID (在真实多人游戏中，这应该从服务器获取)
   const [opponentId, setOpponentId] = useState(null);
 
-  // 游戏结束时调用此函数
   const handleGameEnd = async (winnerId) => {
     if (!token || !gameId) return;
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/games/${gameId}/end`,
+        `${process.env.REACT_APP_API_BASE_URL}/api/games/${gameId}/end`,
         {
           method: "POST",
           headers: {
@@ -43,10 +40,8 @@ const GamePage = () => {
         throw new Error(data.message || "结束游戏失败");
       }
 
-      // 游戏成功结束后的逻辑
       const gameData = await response.json();
 
-      // 显示胜利者信息
       if (gameData.winner) {
         const winnerName = gameData.winner.username;
         setGameMessage(`${winnerName} 获胜!`);
@@ -56,15 +51,12 @@ const GamePage = () => {
     }
   };
 
-  // 检查游戏是否结束
   const checkGameEnd = useCallback(() => {
-    // 检查对手的所有船只是否被击沉
     const allEnemyShipsSunk =
       state.enemyBoard.ships &&
       state.enemyBoard.ships.every((ship) => ship.isSunk());
 
     if (allEnemyShipsSunk) {
-      // 如果对手所有船只都被击沉，当前玩家胜利
       if (user && gameId) {
         handleGameEnd(user._id);
       }
@@ -73,13 +65,11 @@ const GamePage = () => {
       return true;
     }
 
-    // 检查玩家的所有船只是否被击沉
     const allPlayerShipsSunk =
       state.playerBoard.ships &&
       state.playerBoard.ships.every((ship) => ship.isSunk());
 
     if (allPlayerShipsSunk) {
-      // 如果玩家所有船只都被击沉，对手胜利
       if (opponentId && gameId) {
         handleGameEnd(opponentId);
       }
@@ -98,7 +88,6 @@ const GamePage = () => {
     dispatch,
   ]);
 
-  // Memoize handleCellTouch with useCallback to prevent unnecessary recreations
   const handleCellTouch = useCallback(
     (e) => {
       e.preventDefault();
@@ -127,7 +116,6 @@ const GamePage = () => {
                 payload: { row: rowIndex, col: colIndex },
               });
 
-              // 检查游戏是否结束
               setTimeout(() => {
                 checkGameEnd();
               }, 300);
@@ -157,12 +145,11 @@ const GamePage = () => {
       });
     }
 
-    // 如果是多人游戏，从服务器获取游戏和玩家信息
     if (gameId && token) {
       const fetchGameInfo = async () => {
         try {
           const response = await fetch(
-            `http://localhost:8000/api/games/${gameId}`,
+            `${process.env.REACT_APP_API_BASE_URL}/api/games/${gameId}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -172,7 +159,6 @@ const GamePage = () => {
 
           if (response.ok) {
             const gameData = await response.json();
-            // 设置对手ID
             if (gameData.players && gameData.players.length > 1) {
               const opponent = gameData.players.find(
                 (player) => player.user._id !== user._id
@@ -239,7 +225,6 @@ const GamePage = () => {
     };
   }, [state.enemyBoard, state.playerBoard, state.gameStatus, handleCellTouch]);
 
-  // 添加AI回合结束后的游戏结束检查
   useEffect(() => {
     if (state.currentTurn === "player" && state.gameStatus === "playing") {
       checkGameEnd();
@@ -253,7 +238,6 @@ const GamePage = () => {
         payload: { row, col },
       });
 
-      // 检查游戏是否结束
       setTimeout(() => {
         checkGameEnd();
       }, 300);
@@ -266,7 +250,6 @@ const GamePage = () => {
       payload: { gameMode: "normal" },
     });
 
-    // 如果有游戏ID，跳转到该游戏页面
     if (gameId) {
       navigate(`/game/${gameId}`);
     } else {
