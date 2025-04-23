@@ -103,7 +103,7 @@ const MultiplayerGamePage = () => {
         console.log("Auto-sending ready state with ships:", ships);
 
         const response = await fetch(
-          `http://localhost:8000/api/games/${gameId}/ready`,
+          `${process.env.REACT_APP_API_BASE_URL}/api/games/${gameId}/ready`,
           {
             method: "POST",
             headers: {
@@ -162,7 +162,7 @@ const MultiplayerGamePage = () => {
       try {
         console.log("Checking game status...");
         const response = await fetch(
-          `http://localhost:8000/api/games/${gameId}`,
+          `${process.env.REACT_APP_API_BASE_URL}/api/games/${gameId}/`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -485,7 +485,7 @@ const MultiplayerGamePage = () => {
       try {
         setLoading(true);
         const response = await fetch(
-          `http://localhost:8000/api/games/${gameId}`,
+          `${process.env.REACT_APP_API_BASE_URL}/api/games/${gameId}/`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -614,7 +614,7 @@ const MultiplayerGamePage = () => {
       setIsMyTurn(false);
 
       const response = await fetch(
-        `http://localhost:8000/api/games/${gameId}/move`,
+        `${process.env.REACT_APP_API_BASE_URL}/api/games/${gameId}/move`,
         {
           method: "POST",
           headers: {
@@ -685,14 +685,17 @@ const MultiplayerGamePage = () => {
 
         // Send the game end request to the server
         try {
-          await fetch(`http://localhost:8000/api/games/${gameId}/end`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ winnerId: user._id }),
-          });
+          await fetch(
+            `${process.env.REACT_APP_API_BASE_URL}/api/games/${gameId}/end`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ winnerId: user._id }),
+            }
+          );
           console.log("Game end request sent successfully");
         } catch (endError) {
           console.error("Error ending game:", endError);
@@ -716,7 +719,7 @@ const MultiplayerGamePage = () => {
       const checkIfGameStarted = async () => {
         try {
           const response = await fetch(
-            `http://localhost:8000/api/games/${gameId}`,
+            `${process.env.REACT_APP_API_BASE_URL}/api/games/${gameId}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -751,12 +754,15 @@ const MultiplayerGamePage = () => {
       }
 
       try {
-        fetch(`http://localhost:8000/api/games/${gameId}/leave`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
+        fetch(
+          `${process.env.REACT_APP_API_BASE_URL}/api/games/${gameId}/leave`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        )
           .then(() => {
             navigate("/games");
           })
@@ -777,7 +783,7 @@ const MultiplayerGamePage = () => {
       console.log("Board data:", state.playerBoard ? "YES" : "NO");
 
       const response = await fetch(
-        `http://localhost:8000/api/games/${gameId}/ready`,
+        `${process.env.REACT_APP_API_BASE_URL}/api/games/${gameId}/ready`,
         {
           method: "POST",
           headers: {

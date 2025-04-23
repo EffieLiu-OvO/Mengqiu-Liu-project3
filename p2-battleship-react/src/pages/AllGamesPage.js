@@ -34,7 +34,9 @@ const AllGamesPage = () => {
   const fetchGames = async () => {
     try {
       setLoading(true);
-      const response = await fetch("http://localhost:8000/api/games");
+      const response = await fetch(
+        "await fetch(`${process.env.REACT_APP_API_BASE_URL}/api/auth/login`"
+      );
 
       if (!response.ok) {
         const data = await response.json();
@@ -64,14 +66,17 @@ const AllGamesPage = () => {
 
     try {
       setIsSubmitting(true);
-      const response = await fetch("http://localhost:8000/api/games", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ name: newGameName || "New Game" }),
-      });
+      const response = await fetch(
+        "await fetch(`${process.env.REACT_APP_API_BASE_URL}/api/auth/login`",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ name: newGameName || "New Game" }),
+        }
+      );
 
       if (!response.ok) {
         const data = await response.json();
@@ -118,7 +123,7 @@ const AllGamesPage = () => {
     try {
       setIsSubmitting(true);
       const response = await fetch(
-        `http://localhost:8000/api/games/${gameId}/join`,
+        `${process.env.REACT_APP_API_BASE_URL}/api/games/${gameId}/join`,
         {
           method: "POST",
           headers: {

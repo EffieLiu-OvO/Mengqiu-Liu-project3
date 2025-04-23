@@ -16,7 +16,9 @@ const ScoresPage = () => {
   const fetchScores = async () => {
     try {
       setLoading(true);
-      const response = await fetch("http://localhost:8000/api/users/scores");
+      const response = await fetch(
+        "await fetch(`${process.env.REACT_APP_API_BASE_URL}/api/auth/login`"
+      );
 
       if (!response.ok) {
         throw new Error("Failed to fetch scores");
