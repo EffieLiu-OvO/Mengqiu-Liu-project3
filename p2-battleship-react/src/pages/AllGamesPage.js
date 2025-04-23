@@ -67,7 +67,7 @@ const AllGamesPage = () => {
     try {
       setIsSubmitting(true);
       const response = await fetch(
-        `${process.env.REACT_APP_API_BASE_URL}/api/auth/login`,
+        `${process.env.REACT_APP_API_BASE_URL}/api/games`,
         {
           method: "POST",
           headers: {
