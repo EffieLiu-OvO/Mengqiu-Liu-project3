@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from "react";
 import "../styles/Scores.css";
+import { useLocation } from "react-router-dom";
 
 const ScoresPage = () => {
   const [scores, setScores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const location = useLocation();
 
   const userString = localStorage.getItem("user");
   const user = userString ? JSON.parse(userString) : null;
-
-  useEffect(() => {
-    fetchScores();
-  }, []);
 
   const fetchScores = async () => {
     try {
@@ -38,6 +36,10 @@ const ScoresPage = () => {
     if (total === 0) return "0%";
     return `${Math.round((wins / total) * 100)}%`;
   };
+
+  useEffect(() => {
+    fetchScores();
+  }, [location.pathname]);
 
   return (
     <div className="scores-container">
