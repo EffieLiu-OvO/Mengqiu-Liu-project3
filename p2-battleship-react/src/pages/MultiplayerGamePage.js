@@ -175,14 +175,13 @@ const MultiplayerGamePage = () => {
 
         const gameData = await response.json();
 
-        console.log("Game status:", gameData.status);
-        console.log("Current turn:", gameData.gameData?.currentTurn);
-        console.log("Player ready status:", readyStatusRef.current);
-        console.log(
-          "Opponent ready?",
-          gameData.players && gameData.players.every((p) => p.ready)
-        );
+        // Log current turn information for debugging
+        console.log("Server game status:", gameData.status);
+        console.log("Server current turn:", gameData.gameData?.currentTurn);
+        console.log("Current user ID:", user._id);
+        console.log("Current frontend turn state:", state.currentTurn);
 
+        // Skip redundant updates unless forced
         if (
           !forceCheck &&
           lastGameStateRef.current &&
@@ -193,7 +192,28 @@ const MultiplayerGamePage = () => {
 
         lastGameStateRef.current = gameData;
 
-        // 检查所有玩家是否都已准备好，即使游戏状态还不是in_progress
+        // Check for game completion
+        if (gameData.status === "completed") {
+          console.log("Game is completed according to server!");
+          const isWinner = gameData.winner === user._id;
+
+          dispatch({
+            type: "GAME_STATUS_UPDATE",
+            payload: {
+              status: "gameOver",
+              winner: isWinner ? "player" : "opponent",
+            },
+          });
+
+          if (pollInterval) {
+            clearInterval(pollInterval);
+            setPollInterval(null);
+          }
+
+          return true;
+        }
+
+        // Check if all players are ready, even if game not started
         if (
           gameData.players &&
           gameData.players.length >= 2 &&
@@ -210,12 +230,62 @@ const MultiplayerGamePage = () => {
           }
         }
 
+        // Handle in-progress game updates
         if (gameData.status === "in_progress") {
           if (!gameData.gameData || !gameData.gameData.currentTurn) {
             return false;
           }
 
-          // 如果游戏已经开始但前端状态仍然在等待中，强制更新状态
+          // Check if opponent is still in the game
+          if (gameData.players && gameData.players.length > 1) {
+            const opponent = gameData.players.find(
+              (player) => player.user && player.user._id !== user._id
+            );
+
+            if (opponent && opponent.user) {
+              setOpponentUser(opponent.user);
+
+              if (!state.opponent || state.opponent._id !== opponent.user._id) {
+                dispatch({
+                  type: "SET_OPPONENT",
+                  payload: { opponent: opponent.user },
+                });
+              }
+            } else {
+              // Opponent no longer found in the player list
+              console.log("Opponent no longer in game, they likely left");
+              dispatch({
+                type: "OPPONENT_LEFT",
+              });
+
+              if (pollInterval) {
+                clearInterval(pollInterval);
+                setPollInterval(null);
+              }
+
+              return true;
+            }
+          } else if (
+            gameData.status !== "completed" &&
+            state.gameStatus !== "gameOver"
+          ) {
+            // Only one player is left in an in-progress game
+            console.log(
+              "Only one player left in the game - opponent likely left"
+            );
+            dispatch({
+              type: "OPPONENT_LEFT",
+            });
+
+            if (pollInterval) {
+              clearInterval(pollInterval);
+              setPollInterval(null);
+            }
+
+            return true;
+          }
+
+          // Force start game if needed
           if (
             state.gameStatus === "waiting" ||
             state.gameStatus === "waiting_opponent" ||
@@ -255,35 +325,36 @@ const MultiplayerGamePage = () => {
             }
           }
 
+          // Important: Update turn state based on server data
           const isPlayerTurn = gameData.gameData.currentTurn === user._id;
-          setIsMyTurn(isPlayerTurn);
-          clickDisabledRef.current = false;
 
-          if (gameData.players && gameData.players.length > 1) {
-            const opponent = gameData.players.find(
-              (player) => player.user && player.user._id !== user._id
+          // Only dispatch turn update if it's different from current state
+          if (
+            (isPlayerTurn && state.currentTurn !== "player") ||
+            (!isPlayerTurn && state.currentTurn !== "opponent")
+          ) {
+            console.log(
+              `Turn has changed! Setting turn to: ${
+                isPlayerTurn ? "player" : "opponent"
+              }`
             );
 
-            if (opponent && opponent.user) {
-              setOpponentUser(opponent.user);
-
-              if (!state.opponent || state.opponent._id !== opponent.user._id) {
-                dispatch({
-                  type: "SET_OPPONENT",
-                  payload: { opponent: opponent.user },
-                });
-              }
-            }
-          }
-
-          const newTurn = isPlayerTurn ? "player" : "opponent";
-          if (state.currentTurn !== newTurn) {
             dispatch({
               type: "SET_TURN",
               payload: {
-                currentTurn: newTurn,
+                currentTurn: isPlayerTurn ? "player" : "opponent",
               },
             });
+
+            dispatch({
+              type: "SET_GAME_MESSAGE",
+              payload: {
+                message: isPlayerTurn ? "Your turn" : "Opponent's turn",
+              },
+            });
+
+            setIsMyTurn(isPlayerTurn);
+            clickDisabledRef.current = false;
           }
 
           if (state.gameStatus !== "playing") {
@@ -327,19 +398,6 @@ const MultiplayerGamePage = () => {
 
             return true;
           }
-        } else if (gameData.status === "completed") {
-          const isWinner = gameData.winner === user._id;
-          dispatch({
-            type: "SET_GAME_MESSAGE",
-            payload: { message: isWinner ? "You won!" : "You lost!" },
-          });
-
-          if (pollInterval) {
-            clearInterval(pollInterval);
-            setPollInterval(null);
-          }
-
-          return true;
         }
 
         return false;
@@ -374,14 +432,11 @@ const MultiplayerGamePage = () => {
       clearInterval(pollInterval);
     }
 
-    let intervalTime = 800;
-    if (
-      state.gameStatus === "waiting_opponent" ||
-      state.gameStatus === "ready"
-    ) {
-      intervalTime = 600;
-    } else if (state.gameStatus === "playing") {
-      intervalTime = 1000;
+    // Use shorter polling intervals for better responsiveness
+    let intervalTime = 500; // Default to 500ms for faster updates
+
+    if (state.gameStatus === "gameOver") {
+      intervalTime = 2000; // Less frequent if game is over
     }
 
     const interval = setInterval(() => {
@@ -550,6 +605,7 @@ const MultiplayerGamePage = () => {
       }
 
       const moveResult = await response.json();
+      console.log("Move result:", moveResult); // Add this log to debug
 
       movesHistoryRef.current.push({
         player: user._id,
@@ -575,25 +631,42 @@ const MultiplayerGamePage = () => {
 
       setError("");
 
+      // Add more explicit handling for game over condition
       if (moveResult.isGameOver) {
-        if (pollInterval) {
-          clearInterval(pollInterval);
-          setPollInterval(null);
-        }
+        console.log("Game is over! Setting game over state");
 
+        // Update the game status immediately
         dispatch({
           type: "SET_GAME_MESSAGE",
           payload: { message: "You won!" },
         });
 
-        await fetch(`http://localhost:8000/api/games/${gameId}/end`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ winnerId: user._id }),
+        // Stop polling
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          setPollInterval(null);
+        }
+
+        // Set the game status to gameOver
+        dispatch({
+          type: "GAME_STATUS_UPDATE",
+          payload: { status: "gameOver", winner: "player" },
         });
+
+        // Send the game end request to the server
+        try {
+          await fetch(`http://localhost:8000/api/games/${gameId}/end`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ winnerId: user._id }),
+          });
+          console.log("Game end request sent successfully");
+        } catch (endError) {
+          console.error("Error ending game:", endError);
+        }
       }
 
       setTimeout(() => checkGameStatus(true), 500);
@@ -606,6 +679,39 @@ const MultiplayerGamePage = () => {
       }, 1000);
     }
   };
+
+  useEffect(() => {
+    if (readyStatusRef.current && state.gameStatus === "waiting_opponent") {
+      console.log("Checking if game has started...");
+      const checkIfGameStarted = async () => {
+        try {
+          const response = await fetch(
+            `http://localhost:8000/api/games/${gameId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.status === "in_progress") {
+              console.log("GAME HAS STARTED! FORCING UPDATE!");
+              forceStartGame(data);
+            }
+          }
+        } catch (error) {
+          console.error("Error checking game status:", error);
+        }
+      };
+
+      checkIfGameStarted();
+      const interval = setInterval(checkIfGameStarted, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [state.gameStatus, gameId, token, forceStartGame]);
 
   const handleLeaveGame = useCallback(() => {
     if (gameId && token) {
@@ -674,39 +780,6 @@ const MultiplayerGamePage = () => {
       setError(error.message);
     }
   };
-
-  useEffect(() => {
-    if (readyStatusRef.current && state.gameStatus === "waiting_opponent") {
-      console.log("Checking if game has started...");
-      const checkIfGameStarted = async () => {
-        try {
-          const response = await fetch(
-            `http://localhost:8000/api/games/${gameId}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-
-          if (response.ok) {
-            const data = await response.json();
-            if (data.status === "in_progress") {
-              console.log("GAME HAS STARTED! FORCING UPDATE!");
-              forceStartGame(data);
-            }
-          }
-        } catch (error) {
-          console.error("Error checking game status:", error);
-        }
-      };
-
-      checkIfGameStarted();
-      const interval = setInterval(checkIfGameStarted, 1000);
-
-      return () => clearInterval(interval);
-    }
-  }, [state.gameStatus, readyStatusRef.current, gameId, token, forceStartGame]);
 
   if (loading) {
     return (

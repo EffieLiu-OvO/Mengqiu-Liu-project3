@@ -280,6 +280,16 @@ const multiplayerReducer = (state, action) => {
         gameMessage: message,
       };
 
+    case "GAME_STATUS_UPDATE":
+      return {
+        ...state,
+        gameStatus: action.payload.status,
+        winner: action.payload.winner,
+        gameMessage:
+          action.payload.winner === "player" ? "You won!" : "You lost!",
+        currentTurn: null,
+      };
+
     case "OPPONENT_LEFT":
       return {
         ...state,

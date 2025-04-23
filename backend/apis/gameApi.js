@@ -341,20 +341,28 @@ router.post("/:id/move", auth, async (req, res) => {
         }
       }
 
+      // 增强的船只击沉判定
+      console.log("Ship hit status:");
+      opponentShips.forEach((ship) => {
+        console.log(
+          `Ship ${ship.id}: ${ship.hits || 0}/${
+            ship.positions.length
+          } hits - Sunk: ${(ship.hits || 0) === ship.positions.length}`
+        );
+      });
+
+      // 检查是否所有船都被击沉
       isGameOver = opponentShips.every(
         (ship) => ship.hits === ship.positions.length
       );
-
-      if (isGameOver) {
-        console.log("Game over - All ships sunk");
-      }
+      console.log(`All ships sunk? ${isGameOver}`);
     }
 
     if (isGameOver) {
+      console.log("GAME OVER - All ships sunk! Setting winner to:", req.userId);
       game.status = "completed";
       game.winner = req.userId;
       game.endTime = Date.now();
-      console.log(`Game ended. Winner: ${req.userId}`);
 
       const winner = await User.findById(req.userId);
       if (winner) {
@@ -380,7 +388,7 @@ router.post("/:id/move", auth, async (req, res) => {
       hitShipId,
       isSunk,
       isGameOver,
-      nextTurn: isGameOver ? null : "opponent",
+      nextTurn: isGameOver ? null : opponentId,
     });
   } catch (error) {
     console.error("Game move error:", error);
@@ -466,6 +474,7 @@ router.post("/:id/leave", auth, async (req, res) => {
         .json({ message: "You are not a participant in this game" });
     }
 
+    // If game is still in waiting status, just remove the player
     if (game.status === "waiting") {
       game.players = game.players.filter(
         (player) => player.user.toString() !== req.userId
@@ -477,7 +486,15 @@ router.post("/:id/leave", auth, async (req, res) => {
       }
 
       await game.save();
-    } else if (game.status === "in_progress") {
+      return res.json({ message: "Left game successfully" });
+    }
+    // If game is already completed, just return success
+    else if (game.status === "completed") {
+      return res.json({ message: "Left completed game successfully" });
+    }
+    // If game is in progress, set opponent as winner
+    else if (game.status === "in_progress") {
+      // Only set as completed if it wasn't already
       game.status = "completed";
 
       const opponent = game.players.find(
@@ -487,24 +504,30 @@ router.post("/:id/leave", auth, async (req, res) => {
       if (opponent) {
         game.winner = opponent.user;
 
-        const winner = await User.findById(opponent.user);
-        if (winner) {
-          winner.wins += 1;
-          await winner.save();
-        }
+        // Update stats only once
+        if (!game.endTime) {
+          const winner = await User.findById(opponent.user);
+          if (winner) {
+            winner.wins += 1;
+            await winner.save();
+          }
 
-        const loser = await User.findById(req.userId);
-        if (loser) {
-          loser.losses += 1;
-          await loser.save();
+          const loser = await User.findById(req.userId);
+          if (loser) {
+            loser.losses += 1;
+            await loser.save();
+          }
         }
       }
 
-      game.endTime = Date.now();
-      await game.save();
-    }
+      // Mark end time if not already set
+      if (!game.endTime) {
+        game.endTime = Date.now();
+      }
 
-    res.json({ message: "Left game successfully" });
+      await game.save();
+      return res.json({ message: "Left game successfully" });
+    }
   } catch (error) {
     console.error("Error leaving game:", error);
     res.status(500).json({ message: "Server error" });
