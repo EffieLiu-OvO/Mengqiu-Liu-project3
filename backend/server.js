@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const path = require("path");
+const fs = require("fs");
 const connectDB = require("./db/connection");
 const authApi = require("./apis/authApi");
 const gameApi = require("./apis/gameApi");
@@ -40,11 +41,43 @@ app.use("/api/*", (req, res) => {
 });
 
 if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "../frontend/dist")));
+  const frontendPath = path.join(__dirname, "../p2-battleship-react/build");
 
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "../frontend/dist", "index.html"));
-  });
+  try {
+    if (
+      fs.existsSync(frontendPath) &&
+      fs.existsSync(path.join(frontendPath, "index.html"))
+    ) {
+      console.log(`Serving frontend from: ${frontendPath}`);
+      app.use(express.static(frontendPath));
+      app.get("*", (req, res) => {
+        res.sendFile(path.join(frontendPath, "index.html"));
+      });
+    } else {
+      console.log("Frontend build files not found at: " + frontendPath);
+      app.get("*", (req, res) => {
+        if (!req.path.startsWith("/api")) {
+          res
+            .status(200)
+            .send(
+              "Battleship Game API is running. Frontend not found.<br><br>" +
+                "Note: To serve the frontend, build the React app with 'npm run build' in the p2-battleship-react directory."
+            );
+        }
+      });
+    }
+  } catch (error) {
+    console.error("Error checking for frontend files:", error);
+    app.get("*", (req, res) => {
+      if (!req.path.startsWith("/api")) {
+        res
+          .status(200)
+          .send(
+            "Battleship Game API is running. Error checking for frontend files."
+          );
+      }
+    });
+  }
 }
 
 app.use((err, req, res, next) => {
