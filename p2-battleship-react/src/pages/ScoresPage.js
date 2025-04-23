@@ -15,7 +15,7 @@ const ScoresPage = () => {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.REACT_APP_API_BASE_URL}/api/scores`
+        "https://battleship-gm8e.onrender.com/api/scores"
       );
 
       if (!response.ok) {
