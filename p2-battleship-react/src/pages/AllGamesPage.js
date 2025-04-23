@@ -12,7 +12,7 @@ const AllGamesPage = () => {
   const fetchedRef = useRef(false);
   const navigate = useNavigate();
 
-  // 获取用户信息
+  // Get user information
   const userString = localStorage.getItem("user");
   const user = userString ? JSON.parse(userString) : null;
   const token = localStorage.getItem("token");
@@ -24,7 +24,7 @@ const AllGamesPage = () => {
       return;
     }
 
-    // 只在组件挂载时获取一次游戏列表，防止循环请求
+    // Only fetch games list once when component mounts to prevent loop requests
     if (!fetchedRef.current) {
       fetchGames();
       fetchedRef.current = true;
@@ -38,7 +38,7 @@ const AllGamesPage = () => {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.message || "获取游戏列表失败");
+        throw new Error(data.message || "Failed to get games list");
       }
 
       const data = await response.json();
@@ -47,7 +47,7 @@ const AllGamesPage = () => {
       setLoading(false);
     } catch (error) {
       console.error("Error fetching games:", error);
-      setError(error.message || "获取游戏列表失败");
+      setError(error.message || "Failed to get games list");
       setLoading(false);
     }
   };
@@ -70,12 +70,12 @@ const AllGamesPage = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ name: newGameName || "新游戏" }),
+        body: JSON.stringify({ name: newGameName || "New Game" }),
       });
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.message || "创建游戏失败");
+        throw new Error(data.message || "Failed to create game");
       }
 
       const data = await response.json();
@@ -89,7 +89,7 @@ const AllGamesPage = () => {
       navigate(`/multiplayer/${data._id}`);
     } catch (error) {
       console.error("Error creating game:", error);
-      setError(error.message || "创建游戏失败");
+      setError(error.message || "Failed to create game");
     } finally {
       setIsSubmitting(false);
     }
@@ -103,7 +103,7 @@ const AllGamesPage = () => {
 
     if (isSubmitting) return;
 
-    // 检查用户是否已经在游戏中
+    // Check if user is already in the game
     const game = games.find((g) => g._id === gameId);
     const isUserInGame = game?.players.some(
       (player) => player.user && player.user._id === user._id
@@ -130,31 +130,31 @@ const AllGamesPage = () => {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.message || "加入游戏失败");
+        throw new Error(data.message || "Failed to join game");
       }
 
-      // 导航到游戏页面
+      // Navigate to game page
       navigate(`/multiplayer/${gameId}`);
     } catch (error) {
       console.error("Error joining game:", error);
-      setError(error.message || "加入游戏失败");
+      setError(error.message || "Failed to join game");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // 格式化日期
+  // Format date
   const formatDate = (dateString) => {
-    if (!dateString) return "未知时间";
+    if (!dateString) return "Unknown time";
     try {
       const date = new Date(dateString);
       return date.toLocaleString();
     } catch (e) {
-      return "日期格式错误";
+      return "Date format error";
     }
   };
 
-  // 按照分类过滤游戏
+  // Filter games by category
   const openGames = user
     ? games.filter(
         (game) =>
@@ -204,10 +204,10 @@ const AllGamesPage = () => {
   if (!user || !token) {
     return (
       <div className="all-games-container">
-        <h1>多人对战</h1>
-        <p className="error-message">请先登录</p>
+        <h1>Multiplayer Games</h1>
+        <p className="error-message">Please login first</p>
         <button className="return-btn" onClick={() => navigate("/login")}>
-          去登录
+          Go to Login
         </button>
       </div>
     );
@@ -215,13 +215,13 @@ const AllGamesPage = () => {
 
   return (
     <div className="all-games-container">
-      <h1>多人对战</h1>
+      <h1>Multiplayer Games</h1>
 
       {error && (
         <div className="error-message">
           {error}
           <button onClick={handleRetry} className="retry-btn">
-            重试
+            Retry
           </button>
         </div>
       )}
@@ -233,14 +233,14 @@ const AllGamesPage = () => {
               type="text"
               value={newGameName}
               onChange={(e) => setNewGameName(e.target.value)}
-              placeholder="输入游戏名称 (可选)"
+              placeholder="Enter game name (optional)"
             />
             <button
               type="submit"
               className="create-btn"
               disabled={isSubmitting}
             >
-              {isSubmitting ? "创建中..." : "创建"}
+              {isSubmitting ? "Creating..." : "Create"}
             </button>
             <button
               type="button"
@@ -248,7 +248,7 @@ const AllGamesPage = () => {
               onClick={() => setIsCreatingGame(false)}
               disabled={isSubmitting}
             >
-              取消
+              Cancel
             </button>
           </form>
         ) : (
@@ -256,129 +256,124 @@ const AllGamesPage = () => {
             className="new-game-btn"
             onClick={() => setIsCreatingGame(true)}
           >
-            创建新游戏
+            Create New Game
           </button>
         )}
       </div>
 
       {loading ? (
-        <p className="loading-message">加载中...</p>
+        <p className="loading-message">Loading...</p>
       ) : (
         <>
           {/* My Active Games Section */}
           <div className="games-section">
-            <h2>我的进行中游戏</h2>
+            <h2>My Active Games</h2>
             {myActiveGames.length > 0 ? (
               <div className="games-grid">
                 {myActiveGames.map((game) => (
                   <div key={game._id} className="game-card status-in_progress">
-                    <h3>{game.name || `游戏 #${game._id.slice(-4)}`}</h3>
+                    <h3>{game.name || `Game #${game._id.slice(-4)}`}</h3>
                     <p>
-                      对手:{" "}
+                      Opponent:{" "}
                       {game.players.find(
                         (p) => p.user && p.user._id !== user._id
-                      )?.user?.username || "等待中"}
+                      )?.user?.username || "Waiting"}
                     </p>
-                    <p>创建时间: {formatDate(game.created)}</p>
+                    <p>Created: {formatDate(game.created)}</p>
                     <button
                       className="join-btn"
                       onClick={() => handleJoinGame(game._id)}
                       disabled={isSubmitting}
                     >
-                      继续游戏
+                      Continue Game
                     </button>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="no-games-message">暂无进行中的游戏</p>
+              <p className="no-games-message">No active games</p>
             )}
           </div>
 
           {/* My Open Games Section */}
           <div className="games-section">
-            <h2>我的等待中游戏</h2>
+            <h2>My Open Games</h2>
             {myOpenGames.length > 0 ? (
               <div className="games-grid">
                 {myOpenGames.map((game) => (
                   <div key={game._id} className="game-card status-waiting">
-                    <h3>{game.name || `游戏 #${game._id.slice(-4)}`}</h3>
-                    <p>创建者: {game.creator?.username || "未知"}</p>
-                    <p>玩家数: {game.players.length}/2</p>
-                    <p>创建时间: {formatDate(game.created)}</p>
+                    <h3>{game.name || `Game #${game._id.slice(-4)}`}</h3>
+                    <p>Creator: {game.creator?.username || "Unknown"}</p>
+                    <p>Players: {game.players.length}/2</p>
+                    <p>Created: {formatDate(game.created)}</p>
                     <button
                       className="join-btn"
                       onClick={() => handleJoinGame(game._id)}
                       disabled={isSubmitting}
                     >
-                      进入游戏
+                      Enter Game
                     </button>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="no-games-message">暂无等待中的游戏</p>
+              <p className="no-games-message">No open games</p>
             )}
           </div>
 
           {/* Open Games Section */}
           <div className="games-section">
-            <h2>开放游戏</h2>
+            <h2>Open Games</h2>
             {openGames.length > 0 ? (
               <div className="games-grid">
                 {openGames.map((game) => (
                   <div key={game._id} className="game-card status-waiting">
-                    <h3>{game.name || `游戏 #${game._id.slice(-4)}`}</h3>
-                    <p>创建者: {game.creator?.username || "未知"}</p>
-                    <p>玩家数: {game.players.length}/2</p>
-                    <p>创建时间: {formatDate(game.created)}</p>
+                    <h3>{game.name || `Game #${game._id.slice(-4)}`}</h3>
+                    <p>Creator: {game.creator?.username || "Unknown"}</p>
+                    <p>Players: {game.players.length}/2</p>
+                    <p>Created: {formatDate(game.created)}</p>
                     <button
                       className="join-btn"
                       onClick={() => handleJoinGame(game._id)}
                       disabled={isSubmitting}
                     >
-                      加入游戏
+                      Join Game
                     </button>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="no-games-message">暂无开放的游戏，请创建新游戏</p>
+              <p className="no-games-message">
+                No open games, please create a new one
+              </p>
             )}
           </div>
 
           {/* Completed Games Section */}
           <div className="games-section">
-            <h2>已完成游戏</h2>
+            <h2>Completed Games</h2>
             {completedGames.length > 0 ? (
               <div className="games-grid">
                 {completedGames.map((game) => (
                   <div key={game._id} className="game-card status-completed">
-                    <h3>{game.name || `游戏 #${game._id.slice(-4)}`}</h3>
-                    <p>创建者: {game.creator?.username || "未知"}</p>
-                    <p>胜利者: {game.winner?.username || "平局"}</p>
+                    <h3>{game.name || `Game #${game._id.slice(-4)}`}</h3>
+                    <p>Creator: {game.creator?.username || "Unknown"}</p>
+                    <p>Winner: {game.winner?.username || "Draw"}</p>
                     <p>
-                      结束时间:{" "}
-                      {game.endTime ? formatDate(game.endTime) : "未知"}
+                      End Time:{" "}
+                      {game.endTime ? formatDate(game.endTime) : "Unknown"}
                     </p>
-                    <button
-                      className="view-btn"
-                      onClick={() => handleJoinGame(game._id)}
-                      disabled={isSubmitting}
-                    >
-                      查看游戏
-                    </button>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="no-games-message">暂无已完成的游戏</p>
+              <p className="no-games-message">No completed games</p>
             )}
           </div>
 
           <div className="refresh-section">
             <button onClick={handleRetry} className="refresh-btn">
-              刷新游戏列表
+              Refresh Games List
             </button>
           </div>
         </>

@@ -13,7 +13,7 @@ const MultiplayerGamePage = () => {
   const [error, setError] = useState("");
   const [opponentUser, setOpponentUser] = useState(null);
   const [isMyTurn, setIsMyTurn] = useState(false);
-  const [pollInterval, setPollInterval] = useState(null);
+  const pollIntervalRef = useRef(null);
   const dataFetchedRef = useRef(false);
   const clickDisabledRef = useRef(false);
   const lastGameStateRef = useRef(null);
@@ -154,6 +154,7 @@ const MultiplayerGamePage = () => {
     attemptReady();
   };
 
+  console.log("Polling game status...");
   const checkGameStatus = useCallback(
     async (forceCheck = false) => {
       if (!gameId || !token || !user) return false;
@@ -195,7 +196,8 @@ const MultiplayerGamePage = () => {
         // Check for game completion
         if (gameData.status === "completed") {
           console.log("Game is completed according to server!");
-          const isWinner = gameData.winner === user._id;
+          const winnerId = gameData.winner?._id || gameData.winner;
+          const isWinner = winnerId && winnerId === user._id;
 
           dispatch({
             type: "GAME_STATUS_UPDATE",
@@ -205,9 +207,9 @@ const MultiplayerGamePage = () => {
             },
           });
 
-          if (pollInterval) {
-            clearInterval(pollInterval);
-            setPollInterval(null);
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
           }
 
           return true;
@@ -258,9 +260,9 @@ const MultiplayerGamePage = () => {
                 type: "OPPONENT_LEFT",
               });
 
-              if (pollInterval) {
-                clearInterval(pollInterval);
-                setPollInterval(null);
+              if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
               }
 
               return true;
@@ -277,9 +279,9 @@ const MultiplayerGamePage = () => {
               type: "OPPONENT_LEFT",
             });
 
-            if (pollInterval) {
-              clearInterval(pollInterval);
-              setPollInterval(null);
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
             }
 
             return true;
@@ -302,6 +304,32 @@ const MultiplayerGamePage = () => {
           const gameDataShips = gameData.gameData.ships || {};
           const gameDataBoards = gameData.gameData.boards || {};
           const gameDataMoves = gameData.gameData.moves || [];
+
+          const myBoard = JSON.parse(JSON.stringify(state.playerBoard));
+          const myId = user._id;
+
+          for (const move of gameDataMoves) {
+            if (move.player !== myId) {
+              const { row, col, isHit } = move;
+              if (!myBoard[row]) {
+                myBoard[row] = Array(10).fill(null);
+              }
+              if (!myBoard[row][col]) {
+                myBoard[row][col] = {};
+              }
+              myBoard[row][col].isHit = true;
+              if (isHit) {
+                myBoard[row][col].hasShip = true;
+              }
+            }
+          }
+
+          dispatch({
+            type: "UPDATE_PLAYER_BOARD",
+            payload: {
+              board: myBoard,
+            },
+          });
 
           if (gameDataMoves.length > 0) {
             movesHistoryRef.current = gameDataMoves;
@@ -420,7 +448,6 @@ const MultiplayerGamePage = () => {
       state.opponent,
       state.playerShips,
       state.playerBoard,
-      pollInterval,
       forceStartGame,
     ]
   );
@@ -428,29 +455,28 @@ const MultiplayerGamePage = () => {
   useEffect(() => {
     if (!gameId || !token || !user) return;
 
-    if (pollInterval) {
-      clearInterval(pollInterval);
-    }
+    console.log("Setting up game status polling...");
 
-    // Use shorter polling intervals for better responsiveness
-    let intervalTime = 500; // Default to 500ms for faster updates
-
-    if (state.gameStatus === "gameOver") {
-      intervalTime = 2000; // Less frequent if game is over
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
     }
 
     const interval = setInterval(() => {
+      console.log("Polling game status...");
       checkGameStatus();
-    }, intervalTime);
+    }, 1000);
 
-    setPollInterval(interval);
+    pollIntervalRef.current = interval;
 
     return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
+      console.log("Cleaning up polling interval...");
+      clearInterval(interval);
     };
-  }, [gameId, token, user, state.gameStatus, checkGameStatus]);
+  }, [gameId, token, user]);
+
+  useEffect(() => {
+    setIsMyTurn(state.currentTurn === "player");
+  }, [state.currentTurn]);
 
   useEffect(() => {
     if (!gameId || !token || dataFetchedRef.current) return;
@@ -626,6 +652,7 @@ const MultiplayerGamePage = () => {
           isSunk: moveResult.isSunk || false,
           isGameOver: moveResult.isGameOver || false,
           nextTurn: moveResult.isGameOver ? null : "opponent",
+          winnerId: moveResult.winnerId || null,
         },
       });
 
@@ -642,15 +669,18 @@ const MultiplayerGamePage = () => {
         });
 
         // Stop polling
-        if (pollInterval) {
-          clearInterval(pollInterval);
-          setPollInterval(null);
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
         }
 
         // Set the game status to gameOver
         dispatch({
           type: "GAME_STATUS_UPDATE",
-          payload: { status: "gameOver", winner: "player" },
+          payload: {
+            status: "gameOver",
+            winner: moveResult.winnerId === user._id ? "player" : "opponent",
+          },
         });
 
         // Send the game end request to the server
@@ -715,8 +745,9 @@ const MultiplayerGamePage = () => {
 
   const handleLeaveGame = useCallback(() => {
     if (gameId && token) {
-      if (pollInterval) {
-        clearInterval(pollInterval);
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
 
       try {
@@ -738,7 +769,7 @@ const MultiplayerGamePage = () => {
     } else {
       navigate("/games");
     }
-  }, [gameId, token, navigate, pollInterval]);
+  }, [gameId, token, navigate]);
 
   const handleReady = async () => {
     try {

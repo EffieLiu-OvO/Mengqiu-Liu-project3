@@ -235,7 +235,10 @@ const multiplayerReducer = (state, action) => {
         isSunk,
         isGameOver,
         nextTurn,
+        winnerId,
       } = action.payload;
+
+      const currentUserId = JSON.parse(localStorage.getItem("user"))?._id;
 
       let newBoard, message;
 
@@ -276,15 +279,19 @@ const multiplayerReducer = (state, action) => {
         playerBoard: !isPlayerMove ? newBoard : state.playerBoard,
         currentTurn: nextTurn,
         gameStatus: isGameOver ? "gameOver" : "playing",
-        winner: isGameOver ? (isPlayerMove ? "player" : "opponent") : null,
         gameMessage: message,
+        winner: isGameOver
+          ? winnerId === currentUserId
+            ? "player"
+            : "opponent"
+          : null,
       };
 
     case "GAME_STATUS_UPDATE":
       return {
         ...state,
         gameStatus: action.payload.status,
-        winner: action.payload.winner,
+        winner: state.winner || action.payload.winner,
         gameMessage:
           action.payload.winner === "player" ? "You won!" : "You lost!",
         currentTurn: null,
@@ -302,6 +309,12 @@ const multiplayerReducer = (state, action) => {
       return {
         ...state,
         gameMessage: action.payload.message,
+      };
+
+    case "UPDATE_PLAYER_BOARD":
+      return {
+        ...state,
+        playerBoard: action.payload.board,
       };
 
     case "RESET_GAME":

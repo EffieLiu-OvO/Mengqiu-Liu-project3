@@ -142,15 +142,12 @@ router.post("/:id/ready", auth, async (req, res) => {
       return res.status(404).json({ message: "Game not found" });
     }
 
-    // 创建对游戏数据的深拷贝，以防止引用问题
     let gameData = JSON.parse(JSON.stringify(game.gameData || {}));
 
-    // 确保gameData的结构完整
     if (!gameData.boards) gameData.boards = {};
     if (!gameData.ships) gameData.ships = {};
     if (!gameData.moves) gameData.moves = [];
 
-    // 保存当前玩家的数据
     const userId = String(req.userId);
     gameData.boards[userId] = board;
     gameData.ships[userId] = ships;
@@ -160,7 +157,6 @@ router.post("/:id/ready", auth, async (req, res) => {
       shipKeys: Object.keys(gameData.ships),
     });
 
-    // 更新游戏对象的gameData字段
     game.gameData = gameData;
 
     console.log(
@@ -172,7 +168,6 @@ router.post("/:id/ready", auth, async (req, res) => {
       Object.keys(game.gameData.ships)
     );
 
-    // 更新玩家准备状态
     const playerIndex = game.players.findIndex(
       (player) => String(player.user) === userId
     );
@@ -185,10 +180,8 @@ router.post("/:id/ready", auth, async (req, res) => {
 
     game.players[playerIndex].ready = true;
 
-    // 检查所有玩家是否准备好
     const allReady = game.players.every((player) => player.ready);
 
-    // 如果所有玩家都准备好并且游戏还未开始，则启动游戏
     if (allReady && game.players.length >= 2 && game.status !== "in_progress") {
       game.status = "in_progress";
       const firstPlayerIndex = Math.floor(Math.random() * game.players.length);
@@ -196,10 +189,8 @@ router.post("/:id/ready", auth, async (req, res) => {
       console.log("Game starting! First turn:", game.gameData.currentTurn);
     }
 
-    // 保存游戏对象
     await game.save();
 
-    // 验证保存是否成功
     const savedGame = await Game.findById(gameId);
     console.log(
       "Verification after save - board keys:",
@@ -330,8 +321,9 @@ router.post("/:id/move", auth, async (req, res) => {
           hitShipId = ship.id;
           console.log(`Hit ship: ${hitShipId}`);
 
-          if (!ship.hits) ship.hits = 0;
+          if (typeof ship.hits !== "number") ship.hits = 0;
           ship.hits += 1;
+          game.markModified("gameData.ships");
 
           isSunk = ship.hits === ship.positions.length;
           if (isSunk) {
@@ -341,7 +333,6 @@ router.post("/:id/move", auth, async (req, res) => {
         }
       }
 
-      // 增强的船只击沉判定
       console.log("Ship hit status:");
       opponentShips.forEach((ship) => {
         console.log(
@@ -351,7 +342,6 @@ router.post("/:id/move", auth, async (req, res) => {
         );
       });
 
-      // 检查是否所有船都被击沉
       isGameOver = opponentShips.every(
         (ship) => ship.hits === ship.positions.length
       );
@@ -389,6 +379,7 @@ router.post("/:id/move", auth, async (req, res) => {
       isSunk,
       isGameOver,
       nextTurn: isGameOver ? null : opponentId,
+      winnerId: isGameOver ? req.userId : null,
     });
   } catch (error) {
     console.error("Game move error:", error);
@@ -474,7 +465,6 @@ router.post("/:id/leave", auth, async (req, res) => {
         .json({ message: "You are not a participant in this game" });
     }
 
-    // If game is still in waiting status, just remove the player
     if (game.status === "waiting") {
       game.players = game.players.filter(
         (player) => player.user.toString() !== req.userId
@@ -487,14 +477,9 @@ router.post("/:id/leave", auth, async (req, res) => {
 
       await game.save();
       return res.json({ message: "Left game successfully" });
-    }
-    // If game is already completed, just return success
-    else if (game.status === "completed") {
+    } else if (game.status === "completed") {
       return res.json({ message: "Left completed game successfully" });
-    }
-    // If game is in progress, set opponent as winner
-    else if (game.status === "in_progress") {
-      // Only set as completed if it wasn't already
+    } else if (game.status === "in_progress") {
       game.status = "completed";
 
       const opponent = game.players.find(
@@ -504,7 +489,6 @@ router.post("/:id/leave", auth, async (req, res) => {
       if (opponent) {
         game.winner = opponent.user;
 
-        // Update stats only once
         if (!game.endTime) {
           const winner = await User.findById(opponent.user);
           if (winner) {
@@ -520,7 +504,6 @@ router.post("/:id/leave", auth, async (req, res) => {
         }
       }
 
-      // Mark end time if not already set
       if (!game.endTime) {
         game.endTime = Date.now();
       }

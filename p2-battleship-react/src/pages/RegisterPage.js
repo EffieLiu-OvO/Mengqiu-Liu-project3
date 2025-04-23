@@ -13,9 +13,8 @@ const RegisterPage = () => {
     e.preventDefault();
     setError("");
 
-    // 验证密码
     if (password !== confirmPassword) {
-      setError("两次输入的密码不一致");
+      setError("Passwords do not match");
       return;
     }
 
@@ -31,16 +30,14 @@ const RegisterPage = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "注册失败");
+        throw new Error(data.message || "Registration failed");
       }
 
-      // 保存用户信息和令牌到本地存储
       localStorage.setItem("user", JSON.stringify(data));
       localStorage.setItem("token", data.token);
 
-      // 跳转到主页
       navigate("/");
-      window.location.reload(); // 刷新页面以更新导航栏状态
+      window.location.reload();
     } catch (error) {
       setError(error.message);
     }
@@ -48,11 +45,11 @@ const RegisterPage = () => {
 
   return (
     <main className="auth-container">
-      <h1>注册</h1>
+      <h1>Register</h1>
       {error && <div className="error-message">{error}</div>}
       <form onSubmit={handleSubmit} className="auth-form">
         <div className="form-group">
-          <label htmlFor="username">用户名</label>
+          <label htmlFor="username">Username</label>
           <input
             type="text"
             id="username"
@@ -62,7 +59,7 @@ const RegisterPage = () => {
           />
         </div>
         <div className="form-group">
-          <label htmlFor="password">密码</label>
+          <label htmlFor="password">Password</label>
           <input
             type="password"
             id="password"
@@ -72,7 +69,7 @@ const RegisterPage = () => {
           />
         </div>
         <div className="form-group">
-          <label htmlFor="confirmPassword">确认密码</label>
+          <label htmlFor="confirmPassword">Confirm Password</label>
           <input
             type="password"
             id="confirmPassword"
@@ -82,11 +79,11 @@ const RegisterPage = () => {
           />
         </div>
         <button type="submit" className="auth-button">
-          注册
+          Register
         </button>
       </form>
       <p className="auth-link">
-        已有账号？ <Link to="/login">登录</Link>
+        Already have an account? <Link to="/login">Login</Link>
       </p>
     </main>
   );

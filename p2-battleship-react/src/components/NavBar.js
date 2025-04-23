@@ -1,4 +1,3 @@
-// frontend/src/components/NavBar.js
 import React, { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 
@@ -7,7 +6,6 @@ const NavBar = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // 检查本地存储中是否有用户信息
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       setUser(JSON.parse(storedUser));
@@ -15,7 +13,6 @@ const NavBar = () => {
   }, []);
 
   const handleLogout = () => {
-    // 清除本地存储中的用户信息和令牌
     localStorage.removeItem("user");
     localStorage.removeItem("token");
     setUser(null);
@@ -40,7 +37,7 @@ const NavBar = () => {
             to="/games"
             className={({ isActive }) => (isActive ? "active" : "")}
           >
-            多人对战
+            Multiplayer
           </NavLink>
         </li>
         <li>
@@ -48,7 +45,7 @@ const NavBar = () => {
             to="/game"
             className={({ isActive }) => (isActive ? "active" : "")}
           >
-            AI练习
+            AI Practice
           </NavLink>
         </li>
         <li>
@@ -56,7 +53,7 @@ const NavBar = () => {
             to="/rules"
             className={({ isActive }) => (isActive ? "active" : "")}
           >
-            规则
+            Rules
           </NavLink>
         </li>
         <li>
@@ -64,7 +61,7 @@ const NavBar = () => {
             to="/scores"
             className={({ isActive }) => (isActive ? "active" : "")}
           >
-            排行榜
+            Leaderboard
           </NavLink>
         </li>
         {user ? (
@@ -74,7 +71,7 @@ const NavBar = () => {
             </li>
             <li>
               <button className="logout-button" onClick={handleLogout}>
-                注销
+                Logout
               </button>
             </li>
           </>
@@ -85,7 +82,7 @@ const NavBar = () => {
                 to="/login"
                 className={({ isActive }) => (isActive ? "active" : "")}
               >
-                登录
+                Login
               </NavLink>
             </li>
             <li>
@@ -93,7 +90,7 @@ const NavBar = () => {
                 to="/register"
                 className={({ isActive }) => (isActive ? "active" : "")}
               >
-                注册
+                Register
               </NavLink>
             </li>
           </>

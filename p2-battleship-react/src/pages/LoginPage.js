@@ -24,16 +24,14 @@ const LoginPage = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "登录失败");
+        throw new Error(data.message || "Login failed");
       }
 
-      // 保存用户信息和令牌到本地存储
       localStorage.setItem("user", JSON.stringify(data));
       localStorage.setItem("token", data.token);
 
-      // 跳转到主页
       navigate("/");
-      window.location.reload(); // 刷新页面以更新导航栏状态
+      window.location.reload();
     } catch (error) {
       setError(error.message);
     }
@@ -41,11 +39,11 @@ const LoginPage = () => {
 
   return (
     <main className="auth-container">
-      <h1>登录</h1>
+      <h1>Login</h1>
       {error && <div className="error-message">{error}</div>}
       <form onSubmit={handleSubmit} className="auth-form">
         <div className="form-group">
-          <label htmlFor="username">用户名</label>
+          <label htmlFor="username">Username</label>
           <input
             type="text"
             id="username"
@@ -55,7 +53,7 @@ const LoginPage = () => {
           />
         </div>
         <div className="form-group">
-          <label htmlFor="password">密码</label>
+          <label htmlFor="password">Password</label>
           <input
             type="password"
             id="password"
@@ -65,11 +63,11 @@ const LoginPage = () => {
           />
         </div>
         <button type="submit" className="auth-button">
-          登录
+          Login
         </button>
       </form>
       <p className="auth-link">
-        没有账号？ <Link to="/register">注册账号</Link>
+        Don't have an account? <Link to="/register">Register now</Link>
       </p>
     </main>
   );

@@ -1,4 +1,3 @@
-// frontend/src/pages/ScoresPage.js
 import React, { useState, useEffect } from "react";
 import "../styles/Scores.css";
 
@@ -7,7 +6,6 @@ const ScoresPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // 获取用户信息
   const userString = localStorage.getItem("user");
   const user = userString ? JSON.parse(userString) : null;
 
@@ -21,7 +19,7 @@ const ScoresPage = () => {
       const response = await fetch("http://localhost:8000/api/users/scores");
 
       if (!response.ok) {
-        throw new Error("获取得分列表失败");
+        throw new Error("Failed to fetch scores");
       }
 
       const data = await response.json();
@@ -33,7 +31,6 @@ const ScoresPage = () => {
     }
   };
 
-  // 计算胜率
   const calculateWinRate = (wins, losses) => {
     const total = wins + losses;
     if (total === 0) return "0%";
@@ -42,22 +39,22 @@ const ScoresPage = () => {
 
   return (
     <div className="scores-container">
-      <h1>排行榜</h1>
+      <h1>Leaderboard</h1>
 
       {error && <div className="error-message">{error}</div>}
 
       {loading ? (
-        <p>加载中...</p>
+        <p>Loading...</p>
       ) : scores.length > 0 ? (
         <div className="scores-table">
           <table>
             <thead>
               <tr>
-                <th>排名</th>
-                <th>用户名</th>
-                <th>胜场</th>
-                <th>负场</th>
-                <th>胜率</th>
+                <th>Rank</th>
+                <th>Username</th>
+                <th>Wins</th>
+                <th>Losses</th>
+                <th>Win Rate</th>
               </tr>
             </thead>
             <tbody>
@@ -79,7 +76,7 @@ const ScoresPage = () => {
           </table>
         </div>
       ) : (
-        <p>暂无得分记录</p>
+        <p>No score records yet</p>
       )}
     </div>
   );

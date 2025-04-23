@@ -24,7 +24,6 @@ const UserSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// 密码加密中间件
 UserSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
 
@@ -37,7 +36,6 @@ UserSchema.pre("save", async function (next) {
   }
 });
 
-// 验证密码的方法
 UserSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
