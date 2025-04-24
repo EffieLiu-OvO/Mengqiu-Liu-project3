@@ -11,11 +11,11 @@ const AllGamesPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fetchedRef = useRef(false);
   const navigate = useNavigate();
-  const isLoggedIn = !!user && !!token;
 
   const userString = localStorage.getItem("user");
   const user = userString ? JSON.parse(userString) : null;
   const token = localStorage.getItem("token");
+  const isLoggedIn = !!user && !!token;
 
   useEffect(() => {
     if (!user || !token) {
