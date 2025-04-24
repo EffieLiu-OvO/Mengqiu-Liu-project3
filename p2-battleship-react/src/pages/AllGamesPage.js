@@ -18,16 +18,11 @@ const AllGamesPage = () => {
   const isLoggedIn = !!user && !!token;
 
   useEffect(() => {
-    if (!user || !token) {
-      navigate("/login");
-      return;
-    }
-
     if (!fetchedRef.current) {
       fetchGames();
       fetchedRef.current = true;
     }
-  }, [user, token, navigate]);
+  }, []);
 
   const fetchGames = async () => {
     try {
@@ -400,6 +395,39 @@ const AllGamesPage = () => {
               )}
             </div>
           )}
+          <div className="games-section">
+            <h2>Other Games</h2>
+            {otherCompletedGames.length === 0 ? (
+              <p className="no-games-message">No other games found</p>
+            ) : (
+              <div className="games-grid">
+                {otherCompletedGames.map((game) => {
+                  const [user1, user2] = game.players.map(
+                    (p) => p.user?.username || "Anonymous"
+                  );
+                  return (
+                    <div key={game._id} className="game-card status-completed">
+                      <h3>
+                        {user1} vs {user2}
+                      </h3>
+                      <p>
+                        <strong>Start:</strong> {formatDate(game.created)}
+                      </p>
+                      <p>
+                        <strong>End:</strong> {formatDate(game.updated)}
+                      </p>
+                      {game.status === "completed" && (
+                        <p>
+                          <strong>Winner:</strong>{" "}
+                          {game.winner?.username || "Unknown"}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           <div className="refresh-section">
             <button onClick={handleRetry} className="refresh-btn">
