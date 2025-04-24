@@ -414,7 +414,7 @@ const AllGamesPage = () => {
                         <strong>Start:</strong> {formatDate(game.created)}
                       </p>
                       <p>
-                        <strong>End:</strong> {formatDate(game.updated)}
+                        <strong>End:</strong> {formatDate(game.endTime)}
                       </p>
                       {game.status === "completed" && (
                         <p>
