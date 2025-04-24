@@ -190,15 +190,17 @@ const AllGamesPage = () => {
       )
     : [];
 
-  const completedGames = user
-    ? games.filter(
-        (game) =>
-          game.status === "completed" &&
-          game.players.some(
-            (player) => player.user && player.user._id === user._id
-          )
-      )
-    : [];
+  const myCompletedGames = games.filter(
+    (game) =>
+      game.status === "completed" &&
+      game.players.some((p) => p.user?._id === user?._id)
+  );
+
+  const otherCompletedGames = games.filter(
+    (game) =>
+      (game.status === "completed" || game.status === "in_progress") &&
+      game.players.every((p) => p.user?._id !== user?._id)
+  );
 
   const handleRetry = () => {
     setError("");
@@ -354,25 +356,60 @@ const AllGamesPage = () => {
             )}
           </div>
 
-          {/* Completed Games Section */}
           <div className="games-section">
-            <h2>Completed Games</h2>
-            {completedGames.length > 0 ? (
-              <div className="games-grid">
-                {completedGames.map((game) => (
-                  <div key={game._id} className="game-card status-completed">
-                    <h3>{game.name || `Game #${game._id.slice(-4)}`}</h3>
-                    <p>Creator: {game.creator?.username || "Unknown"}</p>
-                    <p>Winner: {game.winner?.username || "Draw"}</p>
-                    <p>
-                      End Time:{" "}
-                      {game.endTime ? formatDate(game.endTime) : "Unknown"}
-                    </p>
-                  </div>
-                ))}
-              </div>
+            <h2>My Completed Games</h2>
+            {myCompletedGames.length === 0 ? (
+              <p>No completed games you participated in.</p>
             ) : (
-              <p className="no-games-message">No completed games</p>
+              <ul>
+                {myCompletedGames.map((game) => {
+                  const opponent = game.players.find(
+                    (p) => p.user?._id !== user?._id
+                  );
+                  const didWin = game.winner?._id === user._id;
+                  return (
+                    <li key={game._id}>
+                      Opponent: {opponent?.user?.username || "Unknown"} <br />
+                      Start: {formatDate(game.created)} | End:{" "}
+                      {formatDate(game.updated)}
+                      <br />
+                      {didWin ? "You won!" : "You lost."}
+                      <button onClick={() => handleViewGame(game._id)}>
+                        View Game
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            <h2>Other Games</h2>
+            {otherCompletedGames.length === 0 ? (
+              <p>No other games to display.</p>
+            ) : (
+              <ul>
+                {otherCompletedGames.map((game) => {
+                  const [p1, p2] = game.players.map(
+                    (p) => p.user?.username || "Unknown"
+                  );
+                  return (
+                    <li key={game._id}>
+                      {p1} vs {p2} <br />
+                      Start: {formatDate(game.created)}
+                      <br />
+                      {game.status === "completed" && (
+                        <>
+                          End: {formatDate(game.updated)} | Winner:{" "}
+                          {game.winner?.username || "N/A"}
+                        </>
+                      )}
+                      <button onClick={() => handleViewGame(game._id)}>
+                        View Game
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </div>
 
