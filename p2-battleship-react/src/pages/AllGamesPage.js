@@ -323,7 +323,7 @@ const AllGamesPage = () => {
           )}
 
           <div className="games-section">
-            <h2>Open Games</h2>
+            <h2>{isLoggedIn ? "Open Games" : "Active Games"}</h2>
             {openGames.length > 0 ? (
               <div className="games-grid">
                 {openGames.map((game) => (
@@ -376,7 +376,7 @@ const AllGamesPage = () => {
                           <strong>Start:</strong> {formatDate(game.created)}
                         </p>
                         <p>
-                          <strong>End:</strong> {formatDate(game.updated)}
+                          <strong>End:</strong> {formatDate(game.endTime)}
                         </p>
                         <p>
                           <strong>Result:</strong>{" "}
@@ -396,7 +396,7 @@ const AllGamesPage = () => {
             </div>
           )}
           <div className="games-section">
-            <h2>Other Games</h2>
+            <h2>{isLoggedIn ? "Other Games" : "Completed Games"}</h2>
             {otherCompletedGames.length === 0 ? (
               <p className="no-games-message">No other games found</p>
             ) : (
