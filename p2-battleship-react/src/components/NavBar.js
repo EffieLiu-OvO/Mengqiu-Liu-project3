@@ -37,7 +37,7 @@ const NavBar = () => {
             to="/games"
             className={({ isActive }) => (isActive ? "active" : "")}
           >
-            Multiplayer
+            Multiplayer - New game
           </NavLink>
         </li>
         <li>
