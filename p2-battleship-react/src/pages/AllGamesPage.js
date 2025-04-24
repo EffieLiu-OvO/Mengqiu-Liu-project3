@@ -11,20 +11,18 @@ const AllGamesPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fetchedRef = useRef(false);
   const navigate = useNavigate();
+  const isLoggedIn = !!user && !!token;
 
-  // Get user information
   const userString = localStorage.getItem("user");
   const user = userString ? JSON.parse(userString) : null;
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    // Check if user is logged in
     if (!user || !token) {
       navigate("/login");
       return;
     }
 
-    // Only fetch games list once when component mounts to prevent loop requests
     if (!fetchedRef.current) {
       fetchGames();
       fetchedRef.current = true;
@@ -211,21 +209,14 @@ const AllGamesPage = () => {
     fetchGames();
   };
 
-  if (!user || !token) {
-    return (
-      <div className="all-games-container">
-        <h1>Multiplayer Games</h1>
-        <p className="error-message">Please login first</p>
-        <button className="return-btn" onClick={() => navigate("/login")}>
-          Go to Login
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className="all-games-container">
       <h1>Multiplayer Games</h1>
+      {!isLoggedIn && (
+        <p style={{ color: "gray", fontStyle: "italic" }}>
+          You are viewing as a guest. Login to create or join games.
+        </p>
+      )}
 
       {error && (
         <div className="error-message">
@@ -275,63 +266,67 @@ const AllGamesPage = () => {
         <p className="loading-message">Loading...</p>
       ) : (
         <>
-          {/* My Active Games Section */}
-          <div className="games-section">
-            <h2>My Active Games</h2>
-            {myActiveGames.length > 0 ? (
-              <div className="games-grid">
-                {myActiveGames.map((game) => (
-                  <div key={game._id} className="game-card status-in_progress">
-                    <h3>{game.name || `Game #${game._id.slice(-4)}`}</h3>
-                    <p>
-                      Opponent:{" "}
-                      {game.players.find(
-                        (p) => p.user && p.user._id !== user._id
-                      )?.user?.username || "Waiting"}
-                    </p>
-                    <p>Created: {formatDate(game.created)}</p>
-                    <button
-                      className="join-btn"
-                      onClick={() => handleJoinGame(game._id)}
-                      disabled={isSubmitting}
+          {isLoggedIn && (
+            <div className="games-section">
+              <h2>My Active Games</h2>
+              {myActiveGames.length > 0 ? (
+                <div className="games-grid">
+                  {myActiveGames.map((game) => (
+                    <div
+                      key={game._id}
+                      className="game-card status-in_progress"
                     >
-                      Continue Game
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="no-games-message">No active games</p>
-            )}
-          </div>
+                      <h3>{game.name || `Game #${game._id.slice(-4)}`}</h3>
+                      <p>
+                        Opponent:{" "}
+                        {game.players.find(
+                          (p) => p.user && p.user._id !== user._id
+                        )?.user?.username || "Waiting"}
+                      </p>
+                      <p>Created: {formatDate(game.created)}</p>
+                      <button
+                        className="join-btn"
+                        onClick={() => handleJoinGame(game._id)}
+                        disabled={isSubmitting}
+                      >
+                        Continue Game
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="no-games-message">No active games</p>
+              )}
+            </div>
+          )}
 
-          {/* My Open Games Section */}
-          <div className="games-section">
-            <h2>My Open Games</h2>
-            {myOpenGames.length > 0 ? (
-              <div className="games-grid">
-                {myOpenGames.map((game) => (
-                  <div key={game._id} className="game-card status-waiting">
-                    <h3>{game.name || `Game #${game._id.slice(-4)}`}</h3>
-                    <p>Creator: {game.creator?.username || "Unknown"}</p>
-                    <p>Players: {game.players.length}/2</p>
-                    <p>Created: {formatDate(game.created)}</p>
-                    <button
-                      className="join-btn"
-                      onClick={() => handleJoinGame(game._id)}
-                      disabled={isSubmitting}
-                    >
-                      Enter Game
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="no-games-message">No open games</p>
-            )}
-          </div>
+          {isLoggedIn && (
+            <div className="games-section">
+              <h2>My Open Games</h2>
+              {myOpenGames.length > 0 ? (
+                <div className="games-grid">
+                  {myOpenGames.map((game) => (
+                    <div key={game._id} className="game-card status-waiting">
+                      <h3>{game.name || `Game #${game._id.slice(-4)}`}</h3>
+                      <p>Creator: {game.creator?.username || "Unknown"}</p>
+                      <p>Players: {game.players.length}/2</p>
+                      <p>Created: {formatDate(game.created)}</p>
+                      <button
+                        className="join-btn"
+                        onClick={() => handleJoinGame(game._id)}
+                        disabled={isSubmitting}
+                      >
+                        Enter Game
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="no-games-message">No open games</p>
+              )}
+            </div>
+          )}
 
-          {/* Open Games Section */}
           <div className="games-section">
             <h2>Open Games</h2>
             {openGames.length > 0 ? (
@@ -359,62 +354,52 @@ const AllGamesPage = () => {
             )}
           </div>
 
-          <div className="games-section">
-            <h2>My Completed Games</h2>
-            {myCompletedGames.length === 0 ? (
-              <p>No completed games you participated in.</p>
-            ) : (
-              <ul>
-                {myCompletedGames.map((game) => {
-                  const opponent = game.players.find(
-                    (p) => p.user?._id !== user?._id
-                  );
-                  const didWin = game.winner?._id === user._id;
-                  return (
-                    <li key={game._id}>
-                      Opponent: {opponent?.user?.username || "Unknown"} <br />
-                      Start: {formatDate(game.created)} | End:{" "}
-                      {formatDate(game.updated)}
-                      <br />
-                      {didWin ? "You won!" : "You lost."}
-                      <button onClick={() => handleViewGame(game._id)}>
-                        View Game
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+          {isLoggedIn && (
+            <div className="games-section">
+              <h2>My Completed Games</h2>
+              {myCompletedGames.length === 0 ? (
+                <p>No completed games you participated in.</p>
+              ) : (
+                <div className="games-grid">
+                  {myCompletedGames.map((game) => {
+                    const opponent = game.players.find(
+                      (p) => p.user?._id !== user?._id
+                    );
+                    const didWin = game.winner?._id === user?._id;
 
-            <h2>Other Games</h2>
-            {otherCompletedGames.length === 0 ? (
-              <p>No other games to display.</p>
-            ) : (
-              <ul>
-                {otherCompletedGames.map((game) => {
-                  const [p1, p2] = game.players.map(
-                    (p) => p.user?.username || "Unknown"
-                  );
-                  return (
-                    <li key={game._id}>
-                      {p1} vs {p2} <br />
-                      Start: {formatDate(game.created)}
-                      <br />
-                      {game.status === "completed" && (
-                        <>
-                          End: {formatDate(game.updated)} | Winner:{" "}
-                          {game.winner?.username || "N/A"}
-                        </>
-                      )}
-                      <button onClick={() => handleViewGame(game._id)}>
-                        View Game
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
+                    return (
+                      <div
+                        key={game._id}
+                        className="game-card status-completed"
+                      >
+                        <h3>{game.name || `Game #${game._id.slice(-4)}`}</h3>
+                        <p>
+                          <strong>Opponent:</strong>{" "}
+                          {opponent?.user?.username || "Unknown"}
+                        </p>
+                        <p>
+                          <strong>Start:</strong> {formatDate(game.created)}
+                        </p>
+                        <p>
+                          <strong>End:</strong> {formatDate(game.updated)}
+                        </p>
+                        <p>
+                          <strong>Result:</strong>{" "}
+                          {didWin ? "You won!" : "You lost."}
+                        </p>
+                        <button
+                          className="view-btn"
+                          onClick={() => handleViewGame(game._id)}
+                        >
+                          View Game
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="refresh-section">
             <button onClick={handleRetry} className="refresh-btn">
