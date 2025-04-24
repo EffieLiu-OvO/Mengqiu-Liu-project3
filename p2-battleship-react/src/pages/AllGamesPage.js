@@ -100,6 +100,10 @@ const AllGamesPage = () => {
     }
   };
 
+  const handleViewGame = (gameId) => {
+    navigate(`/multiplayer/${gameId}`);
+  };
+
   const handleJoinGame = async (gameId) => {
     if (!user || !token) {
       navigate("/login");
@@ -108,7 +112,6 @@ const AllGamesPage = () => {
 
     if (isSubmitting) return;
 
-    // Check if user is already in the game
     const game = games.find((g) => g._id === gameId);
     const isUserInGame = game?.players.some(
       (player) => player.user && player.user._id === user._id
